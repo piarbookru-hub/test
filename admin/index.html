@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель — визуальный редактор</title>
+    <link rel="icon" type="image/x-icon" href="favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; overflow: hidden; }
+        
+        .login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .login-card { background: #1a1a1a; border-radius: 16px; padding: 40px; max-width: 480px; width: 100%; border: 1px solid #2a2a2a; }
+        .login-card h1 { font-size: 24px; margin-bottom: 8px; }
+        .login-card .subtitle { color: #888; margin-bottom: 24px; font-size: 14px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: #aaa; font-weight: 500; }
+        .form-group input { width: 100%; padding: 12px 14px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; color: #fff; font-family: inherit; font-size: 14px; }
+        .form-group input:focus { outline: none; border-color: #F40009; }
+        .btn { width: 100%; padding: 14px; background: #F40009; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: background 0.2s; }
+        .btn:hover { background: #d40007; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-secondary { background: #2a2a2a; }
+        .btn-secondary:hover { background: #333; }
+        .help-link { color: #F40009; font-size: 13px; text-decoration: none; display: inline-block; margin-top: 12px; }
+        .error-msg { color: #ff4444; font-size: 13px; margin-top: 8px; display: none; background: rgba(255, 68, 68, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(255, 68, 68, 0.3); }
+        .error-msg.show { display: block; }
+        
+        .editor-app { display: none; flex-direction: column; height: 100vh; }
+        .editor-app.active { display: flex; }
+        
+        .editor-toolbar {
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+        .editor-toolbar h1 { font-size: 16px; font-weight: 600; }
+        .toolbar-actions { display: flex; gap: 10px; align-items: center; }
+        .toolbar-btn {
+            background: #2a2a2a;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .toolbar-btn:hover { border-color: #F40009; }
+        .toolbar-btn.primary { background: #F40009; border-color: #F40009; }
+        .toolbar-btn.primary:hover { background: #d40007; }
+        .toolbar-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .unsaved-badge {
+            background: #F40009;
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 6px;
+            display: none;
+        }
+        .unsaved-badge.show { display: inline-block; }
+        
+        .iframe-wrapper {
+            flex: 1;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+        }
+        .site-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+        .iframe-loader {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #0f0f0f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: opacity 0.3s;
+        }
+        .iframe-loader.hidden { opacity: 0; pointer-events: none; }
+        .iframe-loader .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid #2a2a2a;
+            border-top-color: #F40009;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+        .iframe-loader .loader-text { color: #888; font-size: 14px; }
+        .iframe-loader .loader-status { color: #F40009; font-size: 12px; margin-top: 6px; font-family: 'Courier New', monospace; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .setup-screen {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            padding: 20px;
+            background: #0f0f0f;
+            overflow-y: auto;
+        }
+        .setup-screen.active { display: flex; }
+        .setup-card {
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            border: 1px solid #2a2a2a;
+            text-align: center;
+        }
+        .setup-card i { font-size: 48px; color: #F40009; margin-bottom: 16px; }
+        .setup-card h2 { font-size: 20px; margin-bottom: 12px; }
+        .setup-card p { color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+        .setup-card strong { color: #fff; }
+        
+        .token-check-box {
+            background: #0f0f0f;
+            border: 1px solid #2a2a2a;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .token-check-box h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #F40009;
+        }
+        .token-info {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #aaa;
+            background: #000;
+            padding: 10px;
+            border-radius: 6px;
+            word-break: break-all;
+            margin-top: 8px;
+        }
+        .token-info .label { color: #888; display: block; margin-bottom: 4px; }
+        
+        .error-details {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #ff4444;
+            word-break: break-word;
+        }
+        .error-details .err-title {
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+        }
+        .error-details .err-status {
+            color: #F40009;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .error-details .err-fix {
+            color: #00cc66;
+            margin-top: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        .progress-log {
+            text-align: left;
+            background: #0f0f0f;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            max-height: 250px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .progress-log .log-item { padding: 4px 0; color: #888; }
+        .progress-log .log-item.done { color: #00cc66; }
+        .progress-log .log-item.error { color: #ff4444; }
+        .progress-log .log-item.working { color: #F40009; }
+        
+        .edit-panel {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: #1a1a1a;
+            border-top: 2px solid #F40009;
+            padding: 20px;
+            transform: translateY(100%);
+            transition: transform 0.3s;
+            z-index: 1000;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+        }
+        .edit-panel.active { transform: translateY(0); }
+        .edit-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .edit-panel-header h3 { font-size: 14px; font-weight: 600; }
+        .edit-panel-header h3 .key-badge { background: #2a2a2a; color: #888; padding: 2px 8px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 11px; margin-left: 8px; }
+        .edit-panel-close { background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer; padding: 4px 8px; }
+        .edit-panel-close:hover { color: #fff; }
+        .edit-panel textarea { width: 100%; min-height: 100px; padding: 12px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; color: #fff; font-family: inherit; font-size: 14px; resize: vertical; }
+        .edit-panel textarea:focus { outline: none; border-color: #F40009; }
+        .edit-panel-actions { display: flex; gap: 10px; margin-top: 12px; justify-content: flex-end; }
+        
+        .edit-panel .file-upload {
+            display: flex; align-items: center; gap: 12px; padding: 16px;
+            background: #0f0f0f; border: 2px dashed #333; border-radius: 8px; cursor: pointer; transition: border-color 0.2s;
+        }
+        .edit-panel .file-upload:hover { border-color: #F40009; }
+        .edit-panel .file-upload i { font-size: 24px; color: #F40009; }
+        .edit-panel .file-upload .upload-text { flex: 1; font-size: 14px; color: #aaa; }
+        .edit-panel .file-upload input[type="file"] { display: none; }
+        
+        .status-bar {
+            position: fixed; top: 60px; right: 24px;
+            background: #1a1a1a; padding: 12px 18px; border-radius: 8px;
+            border: 1px solid #2a2a2a; font-size: 14px; display: none; z-index: 2000; max-width: 350px;
+        }
+        .status-bar.show { display: block; animation: slideIn 0.3s ease-out; }
+        .status-bar.success { border-color: #00cc66; color: #00cc66; }
+        .status-bar.error { border-color: #ff4444; color: #ff4444; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .hint-banner {
+            background: rgba(244, 0, 9, 0.1);
+            border-bottom: 1px solid rgba(244, 0, 9, 0.3);
+            padding: 8px 20px;
+            font-size: 13px;
+            color: #aaa;
+            text-align: center;
+        }
+        .hint-banner strong { color: #F40009; }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 16px; }
+        .btn-group .btn { flex: 1; }
+        .btn-small { width: auto; padding: 10px 16px; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <h1>🔐 Вход в админ-панель</h1>
+            <p class="subtitle">Введите ваш GitHub Personal Access Token</p>
+            <div class="form-group">
+                <label>Personal Access Token</label>
+                <input type="password" id="tokenInput" placeholder="ghp_..." autocomplete="off">
+            </div>
+            <button class="btn" id="loginBtn">Войти</button>
+            <div class="error-msg" id="loginError"></div>
+            <a href="https://github.com/settings/tokens/new?description=CMS-Admin&scopes=repo" target="_blank" class="help-link">
+                <i class="fas fa-external-link-alt"></i> Создать новый токен (с правильными правами)
+            </a>
+        </div>
+    </div>
+
+    <div class="editor-app" id="editorApp">
+        <div class="editor-toolbar">
+            <h1>
+                <i class="fas fa-magic" style="color: #F40009;"></i>
+                <span id="projectNameHeader" style="color: #fff; font-weight: 600; margin-left: 8px;">Редактор</span>
+                <span id="repoNameHeader" style="color: #888; font-weight: 400; margin-left: 8px; font-size: 13px;"></span>
+                <span class="unsaved-badge" id="unsavedBadge">● есть несохранённые</span>
+            </h1>
+            <div class="toolbar-actions">
+                <button class="toolbar-btn" onclick="checkTokenValidity()" title="Проверить токен">
+                    <i class="fas fa-shield-alt"></i> Проверить
+                </button>
+                <button class="toolbar-btn" onclick="reloadIframe()" title="Обновить превью">
+                    <i class="fas fa-sync"></i> Обновить
+                </button>
+                <button class="toolbar-btn" onclick="resetSite()" title="Подготовить заново">
+                    <i class="fas fa-redo"></i> Переподготовить
+                </button>
+                <button class="toolbar-btn primary" id="saveBtn" onclick="saveAllChanges()">
+                    <i class="fas fa-cloud-upload-alt"></i> Сохранить в GitHub
+                </button>
+                <button class="toolbar-btn" onclick="logout()" title="Выйти">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="hint-banner" id="hintBanner">
+            💡 Наведите на любой <strong>текст с кириллицей</strong> или <strong>фото</strong> и кликните — откроется редактор.
+        </div>
+        
+        <div class="setup-screen" id="setupScreen">
+            <div class="setup-card">
+                <i class="fas fa-wand-magic-sparkles"></i>
+                <h2 id="setupTitle">Подготовка сайта</h2>
+                <p id="setupDesc">
+                    Админка автоматически:<br>
+                    • Загрузит ваш <strong>index.html</strong><br>
+                    • Найдёт все тексты с кириллицей<br>
+                    • Расставит метки для редактирования<br>
+                    • Сохранит обратно в репозиторий
+                </p>
+                
+                <div class="token-check-box" id="tokenInfoBox">
+                    <h3><i class="fas fa-key"></i> Информация о токене</h3>
+                    <div id="tokenInfo">Проверяю...</div>
+                </div>
+                
+                <button class="btn" id="prepareBtn" onclick="prepareSite()">
+                    <i class="fas fa-download"></i> Подготовить сайт
+                </button>
+                
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-small" onclick="checkTokenValidity()">
+                        <i class="fas fa-shield-alt"></i> Проверить токен
+                    </button>
+                    <a href="https://github.com/settings/tokens/new?description=CMS-Admin&scopes=repo" target="_blank" class="btn btn-secondary btn-small" style="text-decoration:none; text-align:center; color:#fff;">
+                        <i class="fas fa-plus"></i> Новый токен
+                    </a>
+                </div>
+                
+                <div id="errorDetails"></div>
+                <div class="progress-log" id="progressLog" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <div class="iframe-wrapper" id="iframeWrapper" style="display: none;">
+            <div class="iframe-loader" id="iframeLoader">
+                <div class="spinner"></div>
+                <div class="loader-text">Загрузка сайта...</div>
+                <div class="loader-status" id="loaderStatus">Инициализация</div>
+            </div>
+            <iframe id="siteIframe" class="site-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe>
+        </div>
+    </div>
+
+    <div class="edit-panel" id="editPanel">
+        <div class="edit-panel-header">
+            <h3 id="editPanelTitle">Редактирование <span class="key-badge" id="editKey"></span></h3>
+            <button class="edit-panel-close" onclick="closeEditPanel()">✕</button>
+        </div>
+        <div id="editPanelContent"></div>
+        <div class="edit-panel-actions">
+            <button class="toolbar-btn btn-secondary" onclick="closeEditPanel()">Отмена</button>
+            <button class="toolbar-btn primary" onclick="applyEdit()">Применить</button>
+        </div>
+    </div>
+
+    <div class="status-bar" id="statusBar"></div>
+
+    <script>
+        let currentToken = localStorage.getItem('gh_token');
+        let currentHtml = '';
+        let currentHtmlSha = null;
+        let editableMap = {};
+        let pendingChanges = {};
+        let currentEditKey = null;
+        let currentEditType = null;
+
+        document.getElementById('projectNameHeader').textContent = CMS_CONFIG.projectName;
+        document.getElementById('repoNameHeader').textContent = `· ${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
+
+        function showStatus(msg, type = 'success') {
+            const bar = document.getElementById('statusBar');
+            bar.textContent = msg;
+            bar.className = 'status-bar show ' + type;
+            setTimeout(() => bar.classList.remove('show'), 3500);
+        }
+
+        function decodeBase64(b) {
+            return decodeURIComponent(escape(atob(b)));
+        }
+
+        function encodeBase64(s) {
+            return btoa(unescape(encodeURIComponent(s)));
+        }
+
+        function markUnsaved() {
+            if (Object.keys(pendingChanges).length > 0) {
+                document.getElementById('unsavedBadge').classList.add('show');
+            } else {
+                document.getElementById('unsavedBadge').classList.remove('show');
+            }
+        }
+
+        // ============ ДЕТАЛЬНАЯ ОБРАБОТКА ОШИБОК ============
+        async function githubApiCall(url, options = {}) {
+            const res = await fetch(url, options);
+            
+            if (!res.ok) {
+                let errorBody = '';
+                try {
+                    const errJson = await res.json();
+                    errorBody = errJson.message || JSON.stringify(errJson);
+                } catch (e) {
+                    errorBody = await res.text();
+                }
+                
+                const error = new Error(`HTTP ${res.status}: ${errorBody}`);
+                error.status = res.status;
+                error.body = errorBody;
+                throw error;
+            }
+            
+            return res;
+        }
+
+        function showErrorDetails(title, status, body, fix) {
+            const box = document.getElementById('errorDetails');
+            box.innerHTML = `
+                <div class="error-details">
+                    <div class="err-title">⚠ ${title}</div>
+                    <div class="err-status">Код: ${status}</div>
+                    <div style="color: #888; font-size: 12px; margin-bottom: 8px;">${body}</div>
+                    <div class="err-fix">✓ ${fix}</div>
+                </div>
+            `;
+        }
+
+        function interpretError(status, body) {
+            if (status === 401) {
+                return {
+                    title: 'Токен недействителен или истёк',
+                    fix: 'Создайте новый Personal Access Token по кнопке ниже и вставьте его заново. Токены GitHub имеют срок действия.'
+                };
+            }
+            if (status === 403) {
+                if (body.includes('rate limit')) {
+                    return {
+                        title: 'Превышен лимит запросов GitHub API',
+                        fix: 'Подождите 1 минуту и попробуйте снова. Или создайте токен с правами "repo".'
+                    };
+                }
+                if (body.includes('scope') || body.includes('permission')) {
+                    return {
+                        title: 'У токена нет нужных прав',
+                        fix: 'Создайте НОВЫЙ токен с правами "repo" (полный доступ к репозиториям). Старый токен удалить.'
+                    };
+                }
+                return {
+                    title: 'Доступ запрещён',
+                    fix: 'Проверьте, что токен принадлежит тому же аккаунту, что и репозиторий. Создайте новый токен.'
+                };
+            }
+            if (status === 404) {
+                return {
+                    title: 'Репозиторий или файл не найден',
+                    fix: `Проверьте в config.js: owner="${CMS_CONFIG.owner}", repo="${CMS_CONFIG.repo}", branch="${CMS_CONFIG.branch}". Убедитесь, что имя репозитория совпадает буква в букву.`
+                };
+            }
+            return {
+                title: 'Неизвестная ошибка',
+                fix: 'Попробуйте создать новый токен с правами "repo".'
+            };
+        }
+
+        // ============ ПРОВЕРКА ТОКЕНА ============
+        async function checkTokenValidity() {
+            const infoBox = document.getElementById('tokenInfo');
+            infoBox.innerHTML = '<span style="color:#F40009;">Проверка токена...</span>';
+            
+            try {
+                const res = await githubApiCall('https://api.github.com/user', {
+                    headers: { 'Authorization': 'token ' + currentToken }
+                });
+                const user = await res.json();
+                
+                // Проверяем scope токена
+                const scopeHeader = res.headers.get('X-OAuth-Scopes') || '';
+                const hasRepoScope = scopeHeader.includes('repo');
+                
+                // Проверяем доступ к репозиторию
+                const repoRes = await githubApiCall(
+                    `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`,
+                    { headers: { 'Authorization': 'token ' + currentToken } }
+                );
+                const repo = await repoRes.json();
+                
+                // Проверяем, есть ли index.html
+                let hasIndexHtml = false;
+                try {
+                    await githubApiCall(
+                        `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/index.html?ref=${CMS_CONFIG.branch}`,
+                        { headers: { 'Authorization': 'token ' + currentToken } }
+                    );
+                    hasIndexHtml = true;
+                } catch (e) {}
+                
+                infoBox.innerHTML = `
+                    <div class="token-info">
+                        <span class="label">✓ Пользователь:</span>
+                        ${user.login}
+                    </div>
+                    <div class="token-info" style="margin-top:8px;">
+                        <span class="label">Права токена (scopes):</span>
+                        ${scopeHeader || 'нет данных'}
+                        ${hasRepoScope ? '<br><span style="color:#00cc66;">✓ есть repo</span>' : '<br><span style="color:#ff4444;">⚠ НЕТ repo — нужен новый токен!</span>'}
+                    </div>
+                    <div class="token-info" style="margin-top:8px;">
+                        <span class="label">✓ Репозиторий:</span>
+                        ${repo.full_name} (${repo.private ? 'приватный' : 'публичный'})
+                    </div>
+                    <div class="token-info" style="margin-top:8px;">
+                        <span class="label">${hasIndexHtml ? '✓' : '⚠'} index.html в ветке ${CMS_CONFIG.branch}:</span>
+                        ${hasIndexHtml ? 'найден' : 'НЕ НАЙДЕН'}
+                    </div>
+                `;
+                
+                document.getElementById('errorDetails').innerHTML = '';
+                showStatus('✓ Токен валиден. Можно готовить сайт.');
+                
+                if (!hasRepoScope) {
+                    showErrorDetails(
+                        'Токен без прав repo',
+                        'WARNING',
+                        `Текущие scopes: ${scopeHeader || 'пусто'}`,
+                        'Создайте новый токен с правами "repo" по кнопке ниже. Иначе при сохранении будет ошибка 403.'
+                    );
+                }
+                if (!hasIndexHtml) {
+                    showErrorDetails(
+                        'Файл index.html не найден',
+                        '404',
+                        `Ветка "${CMS_CONFIG.branch}" или файл не существует`,
+                        'Создайте файл index.html в корне репозитория или проверьте имя ветки в config.js.'
+                    );
+                }
+                
+                return true;
+            } catch (e) {
+                const interpret = interpretError(e.status, e.body);
+                infoBox.innerHTML = `
+                    <div class="token-info">
+                        <span class="label">✗ Ошибка:</span>
+                        ${e.message}
+                    </div>
+                `;
+                showErrorDetails(interpret.title, e.status || 'unknown', e.body || '', interpret.fix);
+                return false;
+            }
+        }
+
+        // ============ АВТОРИЗАЦИЯ ============
+        if (currentToken) {
+            enterApp(currentToken);
+        }
+
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const t = document.getElementById('tokenInput').value.trim();
+            if (!t) return;
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+            btn.textContent = 'Проверка...';
+            try {
+                const res = await githubApiCall('https://api.github.com/user', {
+                    headers: { 'Authorization': 'token ' + t }
+                });
+                localStorage.setItem('gh_token', t);
+                currentToken = t;
+                enterApp(t);
+            } catch (e) {
+                const err = document.getElementById('loginError');
+                const interpret = interpretError(e.status, e.body);
+                err.innerHTML = `<strong>${interpret.title}</strong><br><small>${interpret.fix}</small>`;
+                err.classList.add('show');
+                btn.disabled = false;
+                btn.textContent = 'Войти';
+            }
+        });
+
+        async function enterApp(token) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('editorApp').classList.add('active');
+            await checkSiteStatus();
+        }
+
+        function logout() {
+            if (Object.keys(pendingChanges).length > 0) {
+                if (!confirm('Есть несохранённые изменения. Выйти?')) return;
+            }
+            localStorage.removeItem('gh_token');
+            location.reload();
+        }
+
+        async function checkSiteStatus() {
+            try {
+                const mapRes = await githubApiCall(
+                    `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/admin/editable-map.json?ref=${CMS_CONFIG.branch}`,
+                    { headers: { 'Authorization': 'token ' + currentToken } }
+                );
+                const mapData = await mapRes.json();
+                editableMap = JSON.parse(decodeBase64(mapData.content));
+                await loadCurrentHtml();
+                showEditor();
+            } catch (e) {
+                showSetup();
+                // Проверяем токен и показываем детали
+                await checkTokenValidity();
+            }
+        }
+
+        async function loadCurrentHtml() {
+            const res = await githubApiCall(
+                `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/index.html?ref=${CMS_CONFIG.branch}`,
+                { headers: { 'Authorization': 'token ' + currentToken } }
+            );
+            const data = await res.json();
+            currentHtml = decodeBase64(data.content);
+            currentHtmlSha = data.sha;
+        }
+
+        function showSetup() {
+            document.getElementById('setupScreen').classList.add('active');
+            document.getElementById('iframeWrapper').style.display = 'none';
+            document.getElementById('hintBanner').style.display = 'none';
+        }
+
+        function showEditor() {
+            document.getElementById('setupScreen').classList.remove('active');
+            document.getElementById('iframeWrapper').style.display = 'block';
+            document.getElementById('hintBanner').style.display = 'block';
+            loadSiteInIframe();
+        }
+
+        function showLoader(statusText = 'Загрузка сайта...') {
+            const loader = document.getElementById('iframeLoader');
+            loader.classList.remove('hidden');
+            document.getElementById('loaderStatus').textContent = statusText;
+        }
+
+        function hideLoader() {
+            document.getElementById('iframeLoader').classList.add('hidden');
+        }
+
+        function loadSiteInIframe() {
+            const iframe = document.getElementById('siteIframe');
+            showLoader('Загрузка index.html...');
+            const siteUrl = `../index.html?edit=1&t=${Date.now()}`;
+            iframe.onload = () => {
+                document.getElementById('loaderStatus').textContent = 'Настройка редактора...';
+                setTimeout(() => {
+                    setupIframeCommunication();
+                    hideLoader();
+                }, 300);
+            };
+            iframe.onerror = () => {
+                document.getElementById('loaderStatus').textContent = 'Ошибка загрузки';
+            };
+            iframe.src = siteUrl;
+        }
+
+        function reloadIframe() {
+            loadSiteInIframe();
+            showStatus('Обновляем превью...');
+        }
+
+        async function prepareSite() {
+            const btn = document.getElementById('prepareBtn');
+            const log = document.getElementById('progressLog');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Подготовка...';
+            log.style.display = 'block';
+            document.getElementById('errorDetails').innerHTML = '';
+            
+            const logItem = (msg, type = '') => {
+                const div = document.createElement('div');
+                div.className = 'log-item ' + type;
+                div.textContent = (type === 'done' ? '✓ ' : type === 'error' ? '✗ ' : '→ ') + msg;
+                log.appendChild(div);
+                log.scrollTop = log.scrollHeight;
+            };
+            
+            try {
+                logItem('Загрузка index.html из репозитория...', 'working');
+                const htmlRes = await githubApiCall(
+                    `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/index.html?ref=${CMS_CONFIG.branch}`,
+                    { headers: { 'Authorization': 'token ' + currentToken } }
+                );
+                const htmlData = await htmlRes.json();
+                let html = decodeBase64(htmlData.content);
+                currentHtmlSha = htmlData.sha;
+                logItem('index.html загружен (' + htmlData.size + ' байт)', 'done');
+                
+                logItem('Анализ контента и расстановка меток...', 'working');
+                const result = processHtml(html);
+                html = result.html;
+                editableMap = result.map;
+                const textCount = Object.values(editableMap).filter(m => m.type === 'text').length;
+                const imgCount = Object.values(editableMap).filter(m => m.type === 'image').length;
+                logItem(`Найдено ${textCount} текстов и ${imgCount} картинок`, 'done');
+                
+                logItem('Сохранение карты редактирования...', 'working');
+                await saveFile('admin/editable-map.json', editableMap);
+                logItem('Карта сохранена', 'done');
+                
+                logItem('Сохранение подготовленного index.html...', 'working');
+                await saveFile('index.html', html, currentHtmlSha);
+                currentHtml = html;
+                logItem('index.html обновлён в репозитории', 'done');
+                
+                logItem('Подготовка завершена!', 'done');
+                
+                setTimeout(() => {
+                    showStatus('✓ Сайт подготовлен! Открываем редактор...');
+                    setTimeout(() => showEditor(), 1000);
+                }, 500);
+                
+            } catch (e) {
+                logItem('Ошибка: ' + e.message, 'error');
+                const interpret = interpretError(e.status, e.body);
+                showErrorDetails(interpret.title, e.status || 'unknown', e.body || e.message, interpret.fix);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-redo"></i> Попробовать снова';
+            }
+        }
+
+        function processHtml(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const map = {};
+            let textCounter = 1;
+            let imgCounter = 0;
+            
+            const walker = doc.createTreeWalker(
+                doc.body,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: function(node) {
+                        const parent = node.parentElement;
+                        if (!parent) return NodeFilter.FILTER_REJECT;
+                        const tag = parent.tagName.toLowerCase();
+                        if (['script', 'style', 'title', 'meta', 'input', 'textarea', 'button', 'noscript'].includes(tag)) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        if (parent.closest('form')) return NodeFilter.FILTER_REJECT;
+                        const text = node.textContent.trim();
+                        if (!text) return NodeFilter.FILTER_REJECT;
+                        if (/[а-яА-ЯёЁ]/.test(text)) return NodeFilter.FILTER_ACCEPT;
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                }
+            );
+            
+            let node;
+            const nodesToProcess = [];
+            while (node = walker.nextNode()) nodesToProcess.push(node);
+            
+            nodesToProcess.forEach(node => {
+                const parent = node.parentElement;
+                const text = node.textContent.trim();
+                const key = `auto_${textCounter++}`;
+                if (parent.hasAttribute && parent.hasAttribute('data-edit')) return;
+                const span = doc.createElement('span');
+                span.setAttribute('data-edit', key);
+                span.innerHTML = node.textContent;
+                parent.replaceChild(span, node);
+                map[key] = { type: 'text', originalText: text.substring(0, 200), selector: getSelector(parent) };
+            });
+            
+            const images = doc.querySelectorAll('img');
+            images.forEach(img => {
+                if (img.hasAttribute('data-img')) return;
+                const src = img.getAttribute('src') || '';
+                const fileName = src.split('/').pop() || `image-${imgCounter}.jpg`;
+                const key = `img_${imgCounter++}`;
+                img.setAttribute('data-img', fileName);
+                map[key] = { type: 'image', fileName: fileName, selector: getSelector(img) };
+            });
+            
+            return { html: '<!DOCTYPE html>\n' + doc.documentElement.outerHTML, map: map };
+        }
+
+        function getSelector(el) {
+            if (el.id) return `#${el.id}`;
+            if (el.className && typeof el.className === 'string') {
+                const classes = el.className.trim().split(/\s+/).slice(0, 2).join('.');
+                if (classes) return el.tagName.toLowerCase() + '.' + classes;
+            }
+            return el.tagName.toLowerCase();
+        }
+
+        async function saveFile(path, data, sha = null) {
+            const body = {
+                message: `Обновление ${path}`,
+                content: typeof data === 'string' ? encodeBase64(data) : encodeBase64(JSON.stringify(data, null, 2)),
+                branch: CMS_CONFIG.branch
+            };
+            if (sha) body.sha = sha;
+            const res = await githubApiCall(
+                `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${path}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Authorization': 'token ' + currentToken, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                }
+            );
+            return await res.json();
+        }
+
+        function setupIframeCommunication() {
+            const iframe = document.getElementById('siteIframe');
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                if (!iframeDoc) return;
+                const handlerCode = `
+                    (function() {
+                        document.addEventListener('click', function(e) {
+                            const editEl = e.target.closest('[data-edit]');
+                            if (editEl) {
+                                e.preventDefault(); e.stopPropagation();
+                                window.parent.postMessage({ type: 'EDIT_TEXT', key: editEl.getAttribute('data-edit'), value: editEl.textContent }, '*');
+                                return;
+                            }
+                            const imgEl = e.target.closest('[data-img]') || e.target.closest('img[data-img]');
+                            if (imgEl) {
+                                e.preventDefault(); e.stopPropagation();
+                                const targetImg = imgEl.tagName === 'IMG' ? imgEl : imgEl.querySelector('img');
+                                const key = (targetImg || imgEl).getAttribute('data-img');
+                                window.parent.postMessage({ type: 'EDIT_IMAGE', key: key, imgSrc: targetImg ? targetImg.src : '' }, '*');
+                            }
+                        }, true);
+                    })();
+                `;
+                const script = iframeDoc.createElement('script');
+                script.textContent = handlerCode;
+                iframeDoc.head.appendChild(script);
+            } catch (e) {
+                console.error('Ошибка связи с iframe:', e);
+            }
+        }
+
+        window.addEventListener('message', function(e) {
+            if (!e.data) return;
+            if (e.data.type === 'EDIT_TEXT') openTextEditor(e.data.key, e.data.value);
+            if (e.data.type === 'EDIT_IMAGE') openImageEditor(e.data.key, e.data.imgSrc);
+        });
+
+        function openTextEditor(key, value) {
+            currentEditKey = key;
+            currentEditType = 'text';
+            document.getElementById('editPanelTitle').innerHTML = `Редактирование текста <span class="key-badge">${key}</span>`;
+            document.getElementById('editPanelContent').innerHTML = `<textarea id="editTextArea">${escapeHtml(value)}</textarea>`;
+            document.getElementById('editPanel').classList.add('active');
+            setTimeout(() => document.getElementById('editTextArea').focus(), 100);
+        }
+
+        function openImageEditor(key, currentSrc) {
+            currentEditKey = key;
+            currentEditType = 'image';
+            document.getElementById('editPanelTitle').innerHTML = `Замена изображения <span class="key-badge">${key}</span>`;
+            document.getElementById('editPanelContent').innerHTML = `
+                <div style="margin-bottom: 16px;">
+                    <div style="color: #888; font-size: 13px; margin-bottom: 8px;">Текущее фото:</div>
+                    <img src="${currentSrc}" style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+                </div>
+                <label class="file-upload">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <div class="upload-text"><strong>Выберите новое изображение</strong><br><small>JPG, PNG. Максимум 2 МБ.</small></div>
+                    <input type="file" id="imageFileInput" accept="image/*">
+                </label>
+                <div id="imagePreview" style="margin-top: 12px;"></div>
+            `;
+            document.getElementById('imageFileInput').addEventListener('change', handleImageSelect);
+            document.getElementById('editPanel').classList.add('active');
+        }
+
+        let pendingImageData = null;
+        let pendingImageName = null;
+
+        function handleImageSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) { showStatus('Файл слишком большой (максимум 2 МБ)', 'error'); return; }
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                pendingImageData = ev.target.result;
+                pendingImageName = file.name;
+                document.getElementById('imagePreview').innerHTML = `
+                    <div style="color: #00cc66; font-size: 13px;">✓ Файл: <strong>${file.name}</strong> (${(file.size/1024).toFixed(0)} КБ)</div>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function applyEdit() {
+            if (currentEditType === 'text') {
+                const newValue = document.getElementById('editTextArea').value;
+                pendingChanges[currentEditKey] = { type: 'text', value: newValue };
+                const iframe = document.getElementById('siteIframe');
+                try {
+                    const el = iframe.contentDocument.querySelector(`[data-edit="${currentEditKey}"]`);
+                    if (el) el.textContent = newValue;
+                } catch (e) {}
+                showStatus('✓ Изменения применены. Сохраните в GitHub.');
+            } else if (currentEditType === 'image') {
+                if (!pendingImageData) { showStatus('Выберите файл', 'error'); return; }
+                pendingChanges[currentEditKey] = { type: 'image', data: pendingImageData, fileName: pendingImageName };
+                const iframe = document.getElementById('siteIframe');
+                try {
+                    const img = iframe.contentDocument.querySelector(`img[data-img="${currentEditKey}"], [data-img="${currentEditKey}"] img`);
+                    if (img) img.src = pendingImageData;
+                } catch (e) {}
+                pendingImageData = null;
+                pendingImageName = null;
+                showStatus('✓ Фото изменено. Сохраните в GitHub.');
+            }
+            markUnsaved();
+            closeEditPanel();
+        }
+
+        function closeEditPanel() {
+            document.getElementById('editPanel').classList.remove('active');
+            currentEditKey = null;
+            currentEditType = null;
+            pendingImageData = null;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        async function saveAllChanges() {
+            const changes = Object.keys(pendingChanges);
+            if (changes.length === 0) { showStatus('Нет изменений для сохранения'); return; }
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            try {
+                await loadCurrentHtml();
+                let html = currentHtml;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                for (const [key, change] of Object.entries(pendingChanges)) {
+                    if (change.type === 'text') {
+                        const el = doc.querySelector(`[data-edit="${key}"]`);
+                        if (el) el.textContent = change.value;
+                    }
+                }
+                const newHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+                const result = await saveFile('index.html', newHtml, currentHtmlSha);
+                currentHtmlSha = result.content.sha;
+                currentHtml = newHtml;
+                
+                const imageChanges = Object.entries(pendingChanges).filter(([k, v]) => v.type === 'image');
+                for (const [key, change] of imageChanges) {
+                    const base64Data = change.data.split(',')[1];
+                    const fileName = `images/${change.fileName}`;
+                    let fileSha = null;
+                    try {
+                        const checkRes = await githubApiCall(
+                            `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${fileName}?ref=${CMS_CONFIG.branch}`,
+                            { headers: { 'Authorization': 'token ' + currentToken } }
+                        );
+                        if (checkRes.ok) {
+                            const checkData = await checkRes.json();
+                            fileSha = checkData.sha;
+                        }
+                    } catch (e) {}
+                    const body = { message: `Обновление изображения ${fileName}`, content: base64Data, branch: CMS_CONFIG.branch };
+                    if (fileSha) body.sha = fileSha;
+                    try {
+                        await githubApiCall(
+                            `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${fileName}`,
+                            { method: 'PUT', headers: { 'Authorization': 'token ' + currentToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+                        );
+                    } catch (e) {
+                        console.error('Ошибка сохранения фото:', e.message);
+                    }
+                }
+                pendingChanges = {};
+                markUnsaved();
+                showStatus('✓ Сохранено! Сайт обновится через 1-2 минуты.');
+                setTimeout(() => reloadIframe(), 2000);
+            } catch (e) {
+                const interpret = interpretError(e.status, e.body);
+                showStatus('✗ ' + interpret.title, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Сохранить в GitHub';
+            }
+        }
+
+        async function resetSite() {
+            if (!confirm('Удалить карту редактирования и подготовить сайт заново?')) return;
+            try {
+                const mapRes = await githubApiCall(
+                    `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/admin/editable-map.json?ref=${CMS_CONFIG.branch}`,
+                    { headers: { 'Authorization': 'token ' + currentToken } }
+                );
+                if (mapRes.ok) {
+                    const data = await mapRes.json();
+                    await githubApiCall(
+                        `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/admin/editable-map.json`,
+                        {
+                            method: 'DELETE',
+                            headers: { 'Authorization': 'token ' + currentToken, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: 'Удаление карты', sha: data.sha, branch: CMS_CONFIG.branch })
+                        }
+                    );
+                }
+                showStatus('Карта удалена. Готовим заново...');
+                setTimeout(() => { showSetup(); document.getElementById('setupTitle').textContent = 'Готовим заново'; }, 1000);
+            } catch (e) {
+                showStatus('Ошибка: ' + e.message, 'error');
+            }
+        }
+
+        window.addEventListener('beforeunload', (e) => {
+            if (Object.keys(pendingChanges).length > 0) { e.preventDefault(); e.returnValue = ''; }
+        });
+    </script>
+</body>
+</html>
