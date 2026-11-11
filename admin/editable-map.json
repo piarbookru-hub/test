@@ -1,0 +1,662 @@
+{
+  "auto_1": {
+    "type": "text",
+    "originalText": "✓ Имя файла скопировано",
+    "selector": "#copiedToast"
+  },
+  "auto_2": {
+    "type": "text",
+    "originalText": "АВТО",
+    "selector": "a.logo"
+  },
+  "auto_3": {
+    "type": "text",
+    "originalText": "МАСТЕР",
+    "selector": "span"
+  },
+  "auto_4": {
+    "type": "text",
+    "originalText": "Главная",
+    "selector": "a"
+  },
+  "auto_5": {
+    "type": "text",
+    "originalText": "О нас",
+    "selector": "a"
+  },
+  "auto_6": {
+    "type": "text",
+    "originalText": "Услуги",
+    "selector": "a"
+  },
+  "auto_7": {
+    "type": "text",
+    "originalText": "Цены",
+    "selector": "a"
+  },
+  "auto_8": {
+    "type": "text",
+    "originalText": "Работы",
+    "selector": "a"
+  },
+  "auto_9": {
+    "type": "text",
+    "originalText": "Команда",
+    "selector": "a"
+  },
+  "auto_10": {
+    "type": "text",
+    "originalText": "Контакты",
+    "selector": "a"
+  },
+  "auto_11": {
+    "type": "text",
+    "originalText": "Главный баннер · 1920×1080",
+    "selector": "span"
+  },
+  "auto_12": {
+    "type": "text",
+    "originalText": "15 лет безупречной работы",
+    "selector": "div.hero-badge"
+  },
+  "auto_13": {
+    "type": "text",
+    "originalText": "Профессиональный",
+    "selector": "h1"
+  },
+  "auto_14": {
+    "type": "text",
+    "originalText": "автосервис",
+    "selector": "span"
+  },
+  "auto_15": {
+    "type": "text",
+    "originalText": "Ремонт любой сложности с гарантией качества. Современные технологии и опытные мастера. Работаем со всеми марками авто.",
+    "selector": "p.tagline"
+  },
+  "auto_16": {
+    "type": "text",
+    "originalText": "Записаться на ремонт",
+    "selector": "a.btn"
+  },
+  "auto_17": {
+    "type": "text",
+    "originalText": "Наши услуги",
+    "selector": "a.btn.btn-outline"
+  },
+  "auto_18": {
+    "type": "text",
+    "originalText": "Гарантия до 2 лет",
+    "selector": "div.hero-feature"
+  },
+  "auto_19": {
+    "type": "text",
+    "originalText": "Без выходных 9-21",
+    "selector": "div.hero-feature"
+  },
+  "auto_20": {
+    "type": "text",
+    "originalText": "Современное оборудование",
+    "selector": "div.hero-feature"
+  },
+  "auto_21": {
+    "type": "text",
+    "originalText": "Фото автосервиса · 800×600",
+    "selector": "span"
+  },
+  "auto_22": {
+    "type": "text",
+    "originalText": "О",
+    "selector": "h2"
+  },
+  "auto_23": {
+    "type": "text",
+    "originalText": "нас",
+    "selector": "span"
+  },
+  "auto_24": {
+    "type": "text",
+    "originalText": "15 лет безупречной работы",
+    "selector": "span.years"
+  },
+  "auto_25": {
+    "type": "text",
+    "originalText": "Мы — команда профессионалов с многолетним опытом в ремонте автомобилей любой марки и сложности: от отечественной классики до премиальных иномарок.",
+    "selector": "p"
+  },
+  "auto_26": {
+    "type": "text",
+    "originalText": "Наш автосервис оснащён современным оборудованием и лицензионным диагностическим программным обеспечением, что позволяет выполнять работы быстро и качественно.",
+    "selector": "p"
+  },
+  "auto_27": {
+    "type": "text",
+    "originalText": "Каждый мастер имеет профильное образование и регулярно проходит повышение квалификации. Мы ценим каждого клиента и гарантируем честность, прозрачность цен и высокое качество работ.",
+    "selector": "p"
+  },
+  "auto_28": {
+    "type": "text",
+    "originalText": "Лет опыта",
+    "selector": "div.stat-lbl"
+  },
+  "auto_29": {
+    "type": "text",
+    "originalText": "Клиентов",
+    "selector": "div.stat-lbl"
+  },
+  "auto_30": {
+    "type": "text",
+    "originalText": "Специалистов",
+    "selector": "div.stat-lbl"
+  },
+  "auto_31": {
+    "type": "text",
+    "originalText": "Рекомендуют",
+    "selector": "div.stat-lbl"
+  },
+  "auto_32": {
+    "type": "text",
+    "originalText": "Наши",
+    "selector": "h2"
+  },
+  "auto_33": {
+    "type": "text",
+    "originalText": "услуги",
+    "selector": "span"
+  },
+  "auto_34": {
+    "type": "text",
+    "originalText": "Полный спектр услуг по ремонту и обслуживанию автомобилей",
+    "selector": "p"
+  },
+  "auto_35": {
+    "type": "text",
+    "originalText": "Диагностика",
+    "selector": "h3"
+  },
+  "auto_36": {
+    "type": "text",
+    "originalText": "Компьютерная диагностика всех систем автомобиля. Выявление неисправностей на ранней стадии.",
+    "selector": "p"
+  },
+  "auto_37": {
+    "type": "text",
+    "originalText": "ТО и обслуживание",
+    "selector": "h3"
+  },
+  "auto_38": {
+    "type": "text",
+    "originalText": "Плановое техническое обслуживание, замена масла, фильтров, тормозных колодок.",
+    "selector": "p"
+  },
+  "auto_39": {
+    "type": "text",
+    "originalText": "Кузовной ремонт",
+    "selector": "h3"
+  },
+  "auto_40": {
+    "type": "text",
+    "originalText": "Восстановление после ДТП, рихтовка, покраска, полировка кузова.",
+    "selector": "p"
+  },
+  "auto_41": {
+    "type": "text",
+    "originalText": "Ремонт двигателя",
+    "selector": "h3"
+  },
+  "auto_42": {
+    "type": "text",
+    "originalText": "Капитальный и текущий ремонт двигателей любой сложности.",
+    "selector": "p"
+  },
+  "auto_43": {
+    "type": "text",
+    "originalText": "Электрика",
+    "selector": "h3"
+  },
+  "auto_44": {
+    "type": "text",
+    "originalText": "Диагностика и ремонт электрооборудования, установка сигнализаций.",
+    "selector": "p"
+  },
+  "auto_45": {
+    "type": "text",
+    "originalText": "Шиномонтаж",
+    "selector": "h3"
+  },
+  "auto_46": {
+    "type": "text",
+    "originalText": "Сезонная замена шин, балансировка, ремонт проколов.",
+    "selector": "p"
+  },
+  "auto_47": {
+    "type": "text",
+    "originalText": "Цены на",
+    "selector": "h2"
+  },
+  "auto_48": {
+    "type": "text",
+    "originalText": "услуги",
+    "selector": "span"
+  },
+  "auto_49": {
+    "type": "text",
+    "originalText": "Прозрачное ценообразование без скрытых платежей",
+    "selector": "p"
+  },
+  "auto_50": {
+    "type": "text",
+    "originalText": "Компьютерная диагностика",
+    "selector": "div.price-name"
+  },
+  "auto_51": {
+    "type": "text",
+    "originalText": "от 1 500 ₽",
+    "selector": "div.price-value"
+  },
+  "auto_52": {
+    "type": "text",
+    "originalText": "Замена масла и фильтров",
+    "selector": "div.price-name"
+  },
+  "auto_53": {
+    "type": "text",
+    "originalText": "от 2 000 ₽",
+    "selector": "div.price-value"
+  },
+  "auto_54": {
+    "type": "text",
+    "originalText": "Замена тормозных колодок",
+    "selector": "div.price-name"
+  },
+  "auto_55": {
+    "type": "text",
+    "originalText": "от 1 800 ₽",
+    "selector": "div.price-value"
+  },
+  "auto_56": {
+    "type": "text",
+    "originalText": "Замена ремня ГРМ",
+    "selector": "div.price-name"
+  },
+  "auto_57": {
+    "type": "text",
+    "originalText": "от 8 000 ₽",
+    "selector": "div.price-value"
+  },
+  "auto_58": {
+    "type": "text",
+    "originalText": "Ремонт подвески",
+    "selector": "div.price-name"
+  },
+  "auto_59": {
+    "type": "text",
+    "originalText": "от 5 000 ₽",
+    "selector": "div.price-value"
+  },
+  "auto_60": {
+    "type": "text",
+    "originalText": "Кузовной ремонт (элемент)",
+    "selector": "div.price-name"
+  },
+  "auto_61": {
+    "type": "text",
+    "originalText": "от 7 000 ₽",
+    "selector": "div.price-value"
+  },
+  "auto_62": {
+    "type": "text",
+    "originalText": "Покраска элемента",
+    "selector": "div.price-name"
+  },
+  "auto_63": {
+    "type": "text",
+    "originalText": "от 9 000 ₽",
+    "selector": "div.price-value"
+  },
+  "auto_64": {
+    "type": "text",
+    "originalText": "Шиномонтаж (4 колеса)",
+    "selector": "div.price-name"
+  },
+  "auto_65": {
+    "type": "text",
+    "originalText": "от 2 500 ₽",
+    "selector": "div.price-value"
+  },
+  "auto_66": {
+    "type": "text",
+    "originalText": "На",
+    "selector": "h2"
+  },
+  "auto_67": {
+    "type": "text",
+    "originalText": "рабочем месте",
+    "selector": "span"
+  },
+  "auto_68": {
+    "type": "text",
+    "originalText": "Примеры наших работ и условия в автосервисе",
+    "selector": "p"
+  },
+  "auto_69": {
+    "type": "text",
+    "originalText": "Работа 1 · 800×600",
+    "selector": "span"
+  },
+  "auto_70": {
+    "type": "text",
+    "originalText": "Работа 2 · 800×600",
+    "selector": "span"
+  },
+  "auto_71": {
+    "type": "text",
+    "originalText": "Работа 3 · 800×600",
+    "selector": "span"
+  },
+  "auto_72": {
+    "type": "text",
+    "originalText": "Работа 4 · 800×600",
+    "selector": "span"
+  },
+  "auto_73": {
+    "type": "text",
+    "originalText": "Работа 5 · 800×600",
+    "selector": "span"
+  },
+  "auto_74": {
+    "type": "text",
+    "originalText": "Работа 6 · 800×600",
+    "selector": "span"
+  },
+  "auto_75": {
+    "type": "text",
+    "originalText": "Наша",
+    "selector": "h2"
+  },
+  "auto_76": {
+    "type": "text",
+    "originalText": "команда",
+    "selector": "span"
+  },
+  "auto_77": {
+    "type": "text",
+    "originalText": "Опытные мастера с профильным образованием",
+    "selector": "p"
+  },
+  "auto_78": {
+    "type": "text",
+    "originalText": "Мастер 1 · 400×500",
+    "selector": "span"
+  },
+  "auto_79": {
+    "type": "text",
+    "originalText": "Иван Петров",
+    "selector": "h3"
+  },
+  "auto_80": {
+    "type": "text",
+    "originalText": "Главный механик",
+    "selector": "div.role"
+  },
+  "auto_81": {
+    "type": "text",
+    "originalText": "Опыт работы: 20 лет",
+    "selector": "div.exp"
+  },
+  "auto_82": {
+    "type": "text",
+    "originalText": "Мастер 2 · 400×500",
+    "selector": "span"
+  },
+  "auto_83": {
+    "type": "text",
+    "originalText": "Сергей Иванов",
+    "selector": "h3"
+  },
+  "auto_84": {
+    "type": "text",
+    "originalText": "Диагност",
+    "selector": "div.role"
+  },
+  "auto_85": {
+    "type": "text",
+    "originalText": "Опыт работы: 15 лет",
+    "selector": "div.exp"
+  },
+  "auto_86": {
+    "type": "text",
+    "originalText": "Мастер 3 · 400×500",
+    "selector": "span"
+  },
+  "auto_87": {
+    "type": "text",
+    "originalText": "Алексей Смирнов",
+    "selector": "h3"
+  },
+  "auto_88": {
+    "type": "text",
+    "originalText": "Кузовщик",
+    "selector": "div.role"
+  },
+  "auto_89": {
+    "type": "text",
+    "originalText": "Опыт работы: 18 лет",
+    "selector": "div.exp"
+  },
+  "auto_90": {
+    "type": "text",
+    "originalText": "Мастер 4 · 400×500",
+    "selector": "span"
+  },
+  "auto_91": {
+    "type": "text",
+    "originalText": "Михаил Козлов",
+    "selector": "h3"
+  },
+  "auto_92": {
+    "type": "text",
+    "originalText": "Электрик",
+    "selector": "div.role"
+  },
+  "auto_93": {
+    "type": "text",
+    "originalText": "Опыт работы: 12 лет",
+    "selector": "div.exp"
+  },
+  "auto_94": {
+    "type": "text",
+    "originalText": "Частые",
+    "selector": "h2"
+  },
+  "auto_95": {
+    "type": "text",
+    "originalText": "вопросы",
+    "selector": "span"
+  },
+  "auto_96": {
+    "type": "text",
+    "originalText": "Ответы на популярные вопросы наших клиентов",
+    "selector": "p"
+  },
+  "auto_97": {
+    "type": "text",
+    "originalText": "Как записаться на ремонт?",
+    "selector": "div.faq-question"
+  },
+  "auto_98": {
+    "type": "text",
+    "originalText": "Вы можете записаться по телефону или оставить заявку на сайте. Мы работаем без выходных с 9:00 до 21:00.",
+    "selector": "p"
+  },
+  "auto_99": {
+    "type": "text",
+    "originalText": "Даёте ли вы гарантию на работы?",
+    "selector": "div.faq-question"
+  },
+  "auto_100": {
+    "type": "text",
+    "originalText": "Да, мы даём гарантию на все виды работ от 6 месяцев до 2 лет в зависимости от типа ремонта.",
+    "selector": "p"
+  },
+  "auto_101": {
+    "type": "text",
+    "originalText": "Можно ли приехать со своими запчастями?",
+    "selector": "div.faq-question"
+  },
+  "auto_102": {
+    "type": "text",
+    "originalText": "Конечно! Вы можете привезти свои запчасти, и мы установим их. Также мы можем помочь с подбором и закупкой запчастей по выгодным ценам.",
+    "selector": "p"
+  },
+  "auto_103": {
+    "type": "text",
+    "originalText": "Сколько времени занимает ремонт?",
+    "selector": "div.faq-question"
+  },
+  "auto_104": {
+    "type": "text",
+    "originalText": "Время зависит от сложности работ. Простое ТО — 1-2 часа, средний ремонт — 1 день, сложный кузовной ремонт — 3-7 дней. Мы всегда называем точные сроки после диагностики.",
+    "selector": "p"
+  },
+  "auto_105": {
+    "type": "text",
+    "originalText": "Работаете ли вы с юридическими лицами?",
+    "selector": "div.faq-question"
+  },
+  "auto_106": {
+    "type": "text",
+    "originalText": "Да, мы работаем как с физическими, так и с юридическими лицами. Предоставляем все необходимые документы для бухгалтерии.",
+    "selector": "p"
+  },
+  "auto_107": {
+    "type": "text",
+    "originalText": "Контакты",
+    "selector": "h2"
+  },
+  "auto_108": {
+    "type": "text",
+    "originalText": "Свяжитесь с нами любым удобным способом",
+    "selector": "p"
+  },
+  "auto_109": {
+    "type": "text",
+    "originalText": "Адрес",
+    "selector": "strong"
+  },
+  "auto_110": {
+    "type": "text",
+    "originalText": "г. Москва, ул. Автомобильная, 15",
+    "selector": "span"
+  },
+  "auto_111": {
+    "type": "text",
+    "originalText": "Телефон",
+    "selector": "strong"
+  },
+  "auto_112": {
+    "type": "text",
+    "originalText": "Режим работы",
+    "selector": "strong"
+  },
+  "auto_113": {
+    "type": "text",
+    "originalText": "Пн-Вс: 9:00 — 21:00",
+    "selector": "span"
+  },
+  "auto_114": {
+    "type": "text",
+    "originalText": "Оставить заявку",
+    "selector": "h3"
+  },
+  "auto_115": {
+    "type": "text",
+    "originalText": "АВТО",
+    "selector": "div.footer-logo"
+  },
+  "auto_116": {
+    "type": "text",
+    "originalText": "МАСТЕР",
+    "selector": "span"
+  },
+  "auto_117": {
+    "type": "text",
+    "originalText": "Профессиональный автосервис с гарантией качества",
+    "selector": "p.footer-text"
+  },
+  "auto_118": {
+    "type": "text",
+    "originalText": "© 2026 АвтоМастер PRO. Все права защищены.",
+    "selector": "div.footer-copy"
+  },
+  "auto_119": {
+    "type": "text",
+    "originalText": "Позвонить",
+    "selector": "a.call"
+  },
+  "auto_120": {
+    "type": "text",
+    "originalText": "Заявка",
+    "selector": "a.form-link"
+  },
+  "img_0": {
+    "type": "image",
+    "fileName": "hero.jpg",
+    "selector": "img"
+  },
+  "img_1": {
+    "type": "image",
+    "fileName": "about.jpg",
+    "selector": "img"
+  },
+  "img_2": {
+    "type": "image",
+    "fileName": "work1.jpg",
+    "selector": "img"
+  },
+  "img_3": {
+    "type": "image",
+    "fileName": "work2.jpg",
+    "selector": "img"
+  },
+  "img_4": {
+    "type": "image",
+    "fileName": "work3.jpg",
+    "selector": "img"
+  },
+  "img_5": {
+    "type": "image",
+    "fileName": "work4.jpg",
+    "selector": "img"
+  },
+  "img_6": {
+    "type": "image",
+    "fileName": "work5.jpg",
+    "selector": "img"
+  },
+  "img_7": {
+    "type": "image",
+    "fileName": "work6.jpg",
+    "selector": "img"
+  },
+  "img_8": {
+    "type": "image",
+    "fileName": "team1.jpg",
+    "selector": "img"
+  },
+  "img_9": {
+    "type": "image",
+    "fileName": "team2.jpg",
+    "selector": "img"
+  },
+  "img_10": {
+    "type": "image",
+    "fileName": "team3.jpg",
+    "selector": "img"
+  },
+  "img_11": {
+    "type": "image",
+    "fileName": "team4.jpg",
+    "selector": "img"
+  }
+}
