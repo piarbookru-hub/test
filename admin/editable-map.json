@@ -1,0 +1,12 @@
+{
+  "auto_11": {
+    "type": "text",
+    "originalText": "ууу+7 (999) 123-45-67",
+    "selector": "a.nav-phone"
+  },
+  "auto_112": {
+    "type": "text",
+    "originalText": "ккк+7 (999) 123-45-67",
+    "selector": "a"
+  }
+}
