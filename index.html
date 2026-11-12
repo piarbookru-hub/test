@@ -663,34 +663,73 @@
     flex-wrap: wrap;
   }
 
-  /* ===== CONTACTS ===== */
+  /* ===== CONTACT CARDS ===== */
+  .contact-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+  .contact-card {
+    background: rgba(26, 22, 20, 0.6);
+    backdrop-filter: blur(10px);
+    padding: 32px;
+    border-radius: 4px;
+    border: 1px solid rgba(201, 169, 97, 0.15);
+    transition: all 0.3s;
+  }
+  .contact-card:hover {
+    border-color: rgba(201, 169, 97, 0.3);
+    transform: translateY(-4px);
+  }
+  .contact-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(201, 169, 97, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .contact-card-icon i {
+    font-size: 20px;
+    color: #c9a961;
+  }
+  .contact-card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 500;
+    color: #c9a961;
+    margin-bottom: 12px;
+    letter-spacing: 0.02em;
+  }
+  .contact-card-value {
+    font-size: 16px;
+    color: #f5efe6;
+    line-height: 1.6;
+    margin-bottom: 4px;
+  }
+  .contact-card-value a {
+    color: #f5efe6;
+    text-decoration: none;
+    transition: color 0.3s;
+  }
+  .contact-card-value a:hover {
+    color: #c9a961;
+  }
+  .contact-card-note {
+    font-size: 14px;
+    color: #8b8277;
+    line-height: 1.5;
+  }
+
+  /* ===== CONTACTS GRID (MAP + FORM) ===== */
   .contacts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 80px;
-    align-items: start;
-  }
-  .contact-block h3 {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 22px;
-    font-weight: 500;
-    color: #c9a961;
-    margin-bottom: 16px;
-    letter-spacing: 0.05em;
-  }
-  .contact-block p,
-  .contact-block a {
-    font-size: 16px;
-    color: #f5efe6;
-    line-height: 1.7;
-    text-decoration: none;
-    margin-bottom: 8px;
-    display: block;
-    transition: color 0.3s;
-  }
-  .contact-block a:hover { color: #c9a961; }
-  .contact-block {
-    margin-bottom: 40px;
+    gap: 48px;
+    align-items: stretch;
   }
   .contact-form {
     background: rgba(26, 22, 20, 0.6);
@@ -698,6 +737,9 @@
     padding: 48px;
     border-radius: 4px;
     border: 1px solid rgba(201, 169, 97, 0.15);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
   .form-group { margin-bottom: 24px; }
   .form-group label {
@@ -742,20 +784,20 @@
     resize: vertical;
     min-height: 80px;
   }
+  .form-group:last-of-type {
+    margin-bottom: 0;
+  }
+  .contact-form .btn {
+    margin-top: 32px;
+    align-self: stretch;
+  }
 
   /* ===== YANDEX MAP ===== */
-  .map-section {
-    padding: 0 48px 60px;
-    position: relative;
-  }
-  .map-section .section-inner {
-    max-width: 1400px;
-    margin: 0 auto;
-  }
   .map-wrapper {
     position: relative;
     width: 100%;
-    height: 480px;
+    height: 100%;
+    min-height: 560px;
     border-radius: 4px;
     overflow: hidden;
     border: 1px solid rgba(201, 169, 97, 0.2);
@@ -779,11 +821,11 @@
     padding: 20px 28px;
     border-radius: 4px;
     border: 1px solid rgba(201, 169, 97, 0.25);
-    max-width: 360px;
+    max-width: 320px;
   }
   .map-overlay-title {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 500;
     color: #f5efe6;
     margin-bottom: 6px;
@@ -878,7 +920,6 @@
     .burger { display: block; }
     .hero, section, .philosophy, .cta-section { padding-left: 24px; padding-right: 24px; }
     .hero { padding-top: 100px; padding-bottom: 40px; }
-    .map-section { padding-left: 24px; padding-right: 24px; padding-bottom: 40px; }
     .hero-content { grid-template-columns: 1fr; gap: 40px; }
     .hero-photo { max-width: 500px; margin: 0 auto; width: 100%; }
     .philosophy, .cta-section { padding-top: 40px; padding-bottom: 40px; }
@@ -892,10 +933,11 @@
     .portfolio-item:nth-child(1),
     .portfolio-item:nth-child(4) { grid-column: span 1; grid-row: span 1; }
     .portfolio-item:last-child { grid-column: span 2; }
-    .contacts-grid { grid-template-columns: 1fr; gap: 40px; }
-    .contact-form { padding: 32px 24px; }
-    .map-wrapper { height: 400px; }
+    .contact-cards { grid-template-columns: 1fr; gap: 16px; }
+    .contacts-grid { grid-template-columns: 1fr; gap: 32px; }
+    .map-wrapper { min-height: 400px; }
     .map-overlay { bottom: 16px; left: 16px; right: 16px; max-width: none; }
+    .contact-form { padding: 32px 24px; }
     footer { padding: 40px 24px 32px; }
     .placeholder-label { max-width: 90%; padding: 16px; }
     .placeholder-label strong { font-size: 11px; }
@@ -908,7 +950,6 @@
     .logo { font-size: 18px; }
     .hero, section, .philosophy, .cta-section { padding-left: 20px; padding-right: 20px; }
     .hero { padding-top: 90px; padding-bottom: 30px; }
-    .map-section { padding-left: 20px; padding-right: 20px; padding-bottom: 30px; }
     .hero-content { gap: 30px; }
     .hero-photo { aspect-ratio: 1/1; max-height: 400px; }
     .hero h1 { margin-bottom: 18px; }
@@ -926,11 +967,18 @@
     .philosophy-text { font-size: 1.5rem; }
     .cta-actions { flex-direction: column; width: 100%; }
     .cta-actions .btn { width: 100%; justify-content: center; }
-    .contact-form { padding: 28px 20px; }
-    .map-wrapper { height: 340px; }
+    .contact-cards { gap: 12px; }
+    .contact-card { padding: 24px; }
+    .contact-card-icon { width: 40px; height: 40px; margin-bottom: 12px; }
+    .contact-card-icon i { font-size: 18px; }
+    .contact-card-title { font-size: 18px; margin-bottom: 10px; }
+    .contact-card-value { font-size: 15px; }
+    .contact-card-note { font-size: 13px; }
+    .map-wrapper { min-height: 340px; }
     .map-overlay { padding: 16px 20px; bottom: 12px; left: 12px; right: 12px; }
-    .map-overlay-title { font-size: 18px; }
+    .map-overlay-title { font-size: 16px; }
     .map-overlay-address { font-size: 12px; margin-bottom: 10px; }
+    .contact-form { padding: 28px 20px; }
     .placeholder-label { padding: 12px; }
     .placeholder-label strong { font-size: 10px; }
     .placeholder-label span { font-size: 9px; }
@@ -959,7 +1007,6 @@
 <!-- HERO -->
 <section class="hero">
   <div class="hero-content">
-    <!-- ТЕКСТ СЛЕВА -->
     <div class="hero-text">
       <div class="hero-tag"><span data-edit="auto_8">Фотостудия · Москва · с 2015 года</span></div>
       <h1><span data-edit="auto_9">Искусство</span><br><span data-edit="auto_10">света </span><em><span data-edit="auto_11">и тени</span></em></h1>
@@ -987,7 +1034,6 @@
       </div>
     </div>
 
-    <!-- ФОТО СПРАВА (коллектив фотографов) -->
     <div class="hero-photo fade-up">
       <img src="images/hero.jpg" alt="Коллектив фотографов студии Махновского" onload="this.parentElement.querySelector('.placeholder-label').style.display='none'" onerror="this.style.display='none'" data-img="images/hero.jpg">
       <div class="placeholder-label">
@@ -1296,27 +1342,57 @@
       </div>
     </div>
 
-    <div class="contacts-grid">
-      <div class="fade-up">
-        <div class="contact-block">
-          <h3><span data-edit="auto_121">Адрес</span></h3>
-          <p><span data-edit="auto_122">Москва, Большая Никитская, 24/1</span><br><span data-edit="auto_123">2 минуты от м. Арбатская</span></p>
-        </div>
-        <div class="contact-block">
-          <h3><span data-edit="auto_124">Телефон</span></h3>
-          <a href="tel:+74951234567">+7 (495) 123-45-67</a>
-        </div>
-        <div class="contact-block">
-          <h3><span data-edit="auto_125">Почта</span></h3>
-          <a href="mailto:hello@makhnovsky.studio">hello@makhnovsky.studio</a>
-        </div>
-        <div class="contact-block">
-          <h3><span data-edit="auto_126">Часы работы</span></h3>
-          <p><span data-edit="auto_127">Ежедневно 09:00 — 23:00</span><br><span data-edit="auto_128">По предварительной записи</span></p>
+    <!-- КАРТОЧКИ КОНТАКТОВ -->
+    <div class="contact-cards fade-up">
+      <div class="contact-card">
+        <div class="contact-card-icon"><i class="fas fa-map-marker-alt"></i></div>
+        <div class="contact-card-title"><span data-edit="auto_121">Адрес</span></div>
+        <div class="contact-card-value"><span data-edit="auto_122">Москва, Большая Никитская, 24/1</span></div>
+        <div class="contact-card-note"><span data-edit="auto_123">2 минуты от м. Арбатская</span></div>
+      </div>
+      <div class="contact-card">
+        <div class="contact-card-icon"><i class="fas fa-phone"></i></div>
+        <div class="contact-card-title"><span data-edit="auto_124">Телефон</span></div>
+        <div class="contact-card-value"><a href="tel:+74951234567">+7 (495) 123-45-67</a></div>
+      </div>
+      <div class="contact-card">
+        <div class="contact-card-icon"><i class="fas fa-envelope"></i></div>
+        <div class="contact-card-title"><span data-edit="auto_125">Почта</span></div>
+        <div class="contact-card-value"><a href="mailto:hello@makhnovsky.studio">hello@makhnovsky.studio</a></div>
+      </div>
+      <div class="contact-card">
+        <div class="contact-card-icon"><i class="fas fa-clock"></i></div>
+        <div class="contact-card-title"><span data-edit="auto_126">Часы работы</span></div>
+        <div class="contact-card-value"><span data-edit="auto_127">Ежедневно 09:00 — 23:00</span></div>
+        <div class="contact-card-note"><span data-edit="auto_128">По предварительной записи</span></div>
+      </div>
+    </div>
+
+    <!-- КАРТА + ФОРМА -->
+    <div class="contacts-grid fade-up">
+      <!-- КАРТА СЛЕВА -->
+      <div class="map-wrapper">
+        <iframe
+          src="https://yandex.ru/map-widget/v1/?ll=37.602691%2C55.752220&z=16&l=map&pt=37.602691%2C55.752220%2Cpm2rdm&lang=ru_RU"
+          allowfullscreen="true"
+          style="position:relative;"
+          title="Фотостудия Махновского на карте">
+        </iframe>
+        <div class="map-overlay">
+          <div class="map-overlay-title"><span data-edit="auto_141">Фотостудия Махновского</span></div>
+          <div class="map-overlay-address">
+            <span data-edit="auto_142">Москва, Большая Никитская, 24/1</span><br>
+            <span data-edit="auto_143">2 минуты от м. Арбатская</span>
+          </div>
+          <a href="https://yandex.ru/maps/-/CHuQjH7r" target="_blank" rel="noopener noreferrer" class="map-overlay-link">
+            <span data-edit="auto_144">Построить маршрут</span>
+            <i class="fas fa-arrow-right"></i>
+          </a>
         </div>
       </div>
 
-      <form class="contact-form fade-up" onsubmit="event.preventDefault(); alert('Спасибо! Мы свяжемся с вами в течение 15 минут.'); this.reset();">
+      <!-- ФОРМА СПРАВА -->
+      <form class="contact-form" onsubmit="event.preventDefault(); alert('Спасибо! Мы свяжемся с вами в течение 15 минут.'); this.reset();">
         <div class="form-group">
           <label><span data-edit="auto_129">Ваше имя</span></label>
           <input type="text" required="" placeholder="Как к вам обращаться">
@@ -1341,7 +1417,7 @@
           <label><span data-edit="auto_132">О проекте</span></label>
           <textarea placeholder="Коротко расскажите о задаче"></textarea>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+        <button type="submit" class="btn btn-primary" style="justify-content: center;">
           Отправить заявку
           <i class="fas fa-arrow-right"></i>
         </button>
@@ -1349,31 +1425,6 @@
     </div>
   </div>
 </section>
-
-<!-- YANDEX MAP -->
-<div class="map-section">
-  <div class="section-inner fade-up">
-    <div class="map-wrapper">
-      <iframe
-        src="https://yandex.ru/map-widget/v1/?ll=37.602691%2C55.752220&z=16&l=map&pt=37.602691%2C55.752220%2Cpm2rdm&lang=ru_RU"
-        allowfullscreen="true"
-        style="position:relative;"
-        title="Фотостудия Махновского на карте">
-      </iframe>
-      <div class="map-overlay">
-        <div class="map-overlay-title"><span data-edit="auto_141">Фотостудия Махновского</span></div>
-        <div class="map-overlay-address">
-          <span data-edit="auto_142">Москва, Большая Никитская, 24/1</span><br>
-          <span data-edit="auto_143">2 минуты от м. Арбатская</span>
-        </div>
-        <a href="https://yandex.ru/maps/-/CHuQjH7r" target="_blank" rel="noopener noreferrer" class="map-overlay-link">
-          <span data-edit="auto_144">Построить маршрут</span>
-          <i class="fas fa-arrow-right"></i>
-        </a>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- FOOTER -->
 <footer>
@@ -1389,13 +1440,11 @@
 </footer>
 
 <script>
-  // Навбар при скролле
   const nav = document.getElementById('nav');
   window.addEventListener('scroll', () => {
     nav.classList.toggle('scrolled', window.scrollY > 50);
   });
 
-  // Бургер
   const burger = document.getElementById('burger');
   const navLinks = document.getElementById('navLinks');
   burger.addEventListener('click', () => {
@@ -1411,7 +1460,6 @@
     });
   });
 
-  // Анимация появления
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) entry.target.classList.add('visible');
