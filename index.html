@@ -743,6 +743,74 @@
     min-height: 80px;
   }
 
+  /* ===== YANDEX MAP ===== */
+  .map-section {
+    padding: 0 48px 60px;
+    position: relative;
+  }
+  .map-section .section-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .map-wrapper {
+    position: relative;
+    width: 100%;
+    height: 480px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(201, 169, 97, 0.2);
+    background: linear-gradient(135deg, #1a1614 0%, #2a1f18 100%);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  }
+  .map-wrapper iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    filter: grayscale(0.15) brightness(0.95);
+  }
+  .map-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    z-index: 10;
+    background: rgba(10, 9, 8, 0.92);
+    backdrop-filter: blur(12px);
+    padding: 20px 28px;
+    border-radius: 4px;
+    border: 1px solid rgba(201, 169, 97, 0.25);
+    max-width: 360px;
+  }
+  .map-overlay-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 500;
+    color: #f5efe6;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .map-overlay-address {
+    font-size: 13px;
+    color: #b8b0a4;
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  .map-overlay-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #c9a961;
+    text-decoration: none;
+    font-weight: 500;
+    transition: gap 0.3s;
+  }
+  .map-overlay-link:hover {
+    gap: 14px;
+  }
+
   /* ===== FOOTER ===== */
   footer {
     padding: 60px 48px 40px;
@@ -810,6 +878,7 @@
     .burger { display: block; }
     .hero, section, .philosophy, .cta-section { padding-left: 24px; padding-right: 24px; }
     .hero { padding-top: 100px; padding-bottom: 40px; }
+    .map-section { padding-left: 24px; padding-right: 24px; padding-bottom: 40px; }
     .hero-content { grid-template-columns: 1fr; gap: 40px; }
     .hero-photo { max-width: 500px; margin: 0 auto; width: 100%; }
     .philosophy, .cta-section { padding-top: 40px; padding-bottom: 40px; }
@@ -825,6 +894,8 @@
     .portfolio-item:last-child { grid-column: span 2; }
     .contacts-grid { grid-template-columns: 1fr; gap: 40px; }
     .contact-form { padding: 32px 24px; }
+    .map-wrapper { height: 400px; }
+    .map-overlay { bottom: 16px; left: 16px; right: 16px; max-width: none; }
     footer { padding: 40px 24px 32px; }
     .placeholder-label { max-width: 90%; padding: 16px; }
     .placeholder-label strong { font-size: 11px; }
@@ -837,6 +908,7 @@
     .logo { font-size: 18px; }
     .hero, section, .philosophy, .cta-section { padding-left: 20px; padding-right: 20px; }
     .hero { padding-top: 90px; padding-bottom: 30px; }
+    .map-section { padding-left: 20px; padding-right: 20px; padding-bottom: 30px; }
     .hero-content { gap: 30px; }
     .hero-photo { aspect-ratio: 1/1; max-height: 400px; }
     .hero h1 { margin-bottom: 18px; }
@@ -855,6 +927,10 @@
     .cta-actions { flex-direction: column; width: 100%; }
     .cta-actions .btn { width: 100%; justify-content: center; }
     .contact-form { padding: 28px 20px; }
+    .map-wrapper { height: 340px; }
+    .map-overlay { padding: 16px 20px; bottom: 12px; left: 12px; right: 12px; }
+    .map-overlay-title { font-size: 18px; }
+    .map-overlay-address { font-size: 12px; margin-bottom: 10px; }
     .placeholder-label { padding: 12px; }
     .placeholder-label strong { font-size: 10px; }
     .placeholder-label span { font-size: 9px; }
@@ -1274,6 +1350,31 @@
   </div>
 </section>
 
+<!-- YANDEX MAP -->
+<div class="map-section">
+  <div class="section-inner fade-up">
+    <div class="map-wrapper">
+      <iframe
+        src="https://yandex.ru/map-widget/v1/?ll=37.602691%2C55.752220&z=16&l=map&pt=37.602691%2C55.752220%2Cpm2rdm&lang=ru_RU"
+        allowfullscreen="true"
+        style="position:relative;"
+        title="Фотостудия Махновского на карте">
+      </iframe>
+      <div class="map-overlay">
+        <div class="map-overlay-title"><span data-edit="auto_141">Фотостудия Махновского</span></div>
+        <div class="map-overlay-address">
+          <span data-edit="auto_142">Москва, Большая Никитская, 24/1</span><br>
+          <span data-edit="auto_143">2 минуты от м. Арбатская</span>
+        </div>
+        <a href="https://yandex.ru/maps/-/CHuQjH7r" target="_blank" rel="noopener noreferrer" class="map-overlay-link">
+          <span data-edit="auto_144">Построить маршрут</span>
+          <i class="fas fa-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- FOOTER -->
 <footer>
   <div class="footer-logo"><span data-edit="auto_133">Махновский</span><span>studio</span></div>
@@ -1318,10 +1419,5 @@
   }, { threshold: 0.1 });
   document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
 </script>
-
-
-
-
-
 
 </body></html>
