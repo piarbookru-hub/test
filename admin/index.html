@@ -462,7 +462,7 @@ function hookIframe() {
     if (!d || !d.head) return;
 
     const st = d.createElement('style');
-    st.textContent = `[data-edit]:hover, img[data-img]:hover, [data-img]:hover { outline: 2px dashed #F40009; outline-offset: 2px; cursor: pointer; }`;
+    st.textContent = `[data-edit]:hover, [data-img]:hover { outline: 2px dashed #F40009; outline-offset: 2px; cursor: pointer; }`;
     d.head.appendChild(st);
 
     d.addEventListener('click', ev => {
@@ -473,10 +473,7 @@ function hookIframe() {
             openText(textEl.getAttribute('data-edit'), textEl.textContent);
             return;
         }
-        const imgEl = ev.target.closest && (
-            ev.target.closest('img[data-img]') ||
-            ev.target.closest('[data-img]')
-        );
+        const imgEl = ev.target.closest && ev.target.closest('[data-img]');
         if (imgEl) {
             ev.preventDefault();
             ev.stopPropagation();
@@ -498,6 +495,18 @@ function normImgPath(src) {
     p = p.replace(/^(\.\/)+/, '').replace(/^\/+/, '');
     return (!p || p.startsWith('../')) ? null : p;
 }
+
+// ============ БАЗОВЫЕ WRAPPER'Ы ДЛЯ ЯДРА ============
+// Это стандартные классы из шпаргалки проекта — работают на всех сайтах без настройки.
+// Специфичные классы (space-card, portfolio-item и т.д.) добавляются в config.js
+const CORE_IMAGE_WRAPPERS = [
+    '.img-wrapper',
+    '.gallery-item',
+    '.team-photo',
+    '.about-img-wrapper',
+    '.hero-img-wrapper',
+    '.product-image'
+];
 
 function processHtml(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -550,34 +559,32 @@ function processHtml(html) {
         textCount++;
     });
 
-    // Обработка картинок — расширенный список wrapper'ов (залы, портфолио, услуги и т.д.)
+    // Обработка картинок: базовые wrapper'ы (ядро) + специфичные (из config.js)
+    const userWrappers = (CMS_CONFIG.imageWrappers || []);
+    const allWrappers = [...CORE_IMAGE_WRAPPERS, ...userWrappers];
+    const wrapperSelector = allWrappers.join(', ');
+
     let imgCount = 0;
     doc.querySelectorAll('img').forEach(img => {
-        const wrapper = img.closest(
-            '.img-wrapper, ' +
-            '.gallery-item, ' +
-            '.team-photo, ' +
-            '.about-img-wrapper, ' +
-            '.hero-img-wrapper, ' +
-            '.product-image, ' +
-            '.space-card, ' +
-            '.space-image, ' +
-            '.portfolio-item, ' +
-            '.work-card, ' +
-            '.service-image, ' +
-            '.blog-image, ' +
-            '[class*="card"], ' +
-            '[class*="item"]'
-        );
-
-        if (wrapper && wrapper.hasAttribute('data-img')) return;
-        if (!wrapper && img.hasAttribute('data-img')) return;
-
+        if (img.hasAttribute('data-img')) return;
         const path = normImgPath(img.getAttribute('src'));
         if (!path) return;
 
-        const target = wrapper || img;
-        target.setAttribute('data-img', path);
+        let wrapper = null;
+        if (wrapperSelector) {
+            wrapper = img.closest(wrapperSelector);
+        }
+
+        if (wrapper && wrapper.hasAttribute('data-img')) return;
+
+        // Если в wrapper есть текстовые метки — помечаем сам img (не трогаем wrapper)
+        if (wrapper && wrapper.querySelector('[data-edit]')) {
+            img.setAttribute('data-img', path);
+        } else if (wrapper) {
+            wrapper.setAttribute('data-img', path);
+        } else {
+            img.setAttribute('data-img', path);
+        }
         imgCount++;
     });
 
