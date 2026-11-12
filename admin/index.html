@@ -41,6 +41,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
 .toolbar-btn:hover { border-color: #F40009; }
 .toolbar-btn.primary { background: #F40009; border-color: #F40009; }
 .toolbar-btn.primary:hover { background: #d40007; }
+.toolbar-btn.warning { background: #8B4513; border-color: #A0522D; }
+.toolbar-btn.warning:hover { background: #A0522D; border-color: #CD853F; }
 .toolbar-btn:disabled { opacity: .5; cursor: not-allowed; }
 .unsaved-badge { background: #F40009; color: #fff; padding: 3px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px; display: none; }
 .unsaved-badge.show { display: inline-block; }
@@ -141,6 +143,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
         <div class="toolbar-actions">
             <button class="toolbar-btn" id="checkBtn" title="Проверить токен"><i class="fas fa-shield-alt"></i> Проверить</button>
             <button class="toolbar-btn" id="reloadBtn" title="Обновить превью"><i class="fas fa-sync"></i> Обновить</button>
+            <button class="toolbar-btn warning" id="cleanBtn" title="Удалить все метки data-edit и data-img из index.html"><i class="fas fa-broom"></i> Очистить метки</button>
             <button class="toolbar-btn" id="resetBtn" title="Подготовить заново"><i class="fas fa-redo"></i> Переподготовить</button>
             <button class="toolbar-btn primary" id="saveBtn"><i class="fas fa-cloud-upload-alt"></i> Сохранить в GitHub</button>
             <button class="toolbar-btn" id="logoutBtn" title="Выйти" aria-label="Выйти"><i class="fas fa-sign-out-alt"></i></button>
@@ -549,26 +552,24 @@ function syncHref(el, newValue) {
     }
 }
 
-// ============ УМНЫЙ ПАРСЕР HTML ============
-function processHtml(html) {
+// ============ ФУНКЦИЯ ОЧИСТКИ МЕТОК (используется кнопкой "Очистить метки") ============
+function cleanHtmlMarks(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-
-    console.log('[Парсер] === Начинаем обработку HTML ===');
-
-    // ═══════════════════════════════════════════════════════
-    // ШАГ 0: ПОЛНАЯ ОЧИСТКА СТАРЫХ МЕТОК
-    // ═══════════════════════════════════════════════════════
     
-    // 1. Рекурсивно удаляем ВСЕ элементы с data-edit
+    console.log('[Очистка] Начинаем удаление меток...');
+    
+    // Считаем до очистки
+    const beforeEdit = doc.querySelectorAll('[data-edit]').length;
+    const beforeImg = doc.querySelectorAll('[data-img]').length;
+    console.log(`[Очистка] До: ${beforeEdit} data-edit, ${beforeImg} data-img`);
+    
+    // 1. Распутываем <span data-edit="...">текст</span> обратно в голый текст
     let pass = 0;
     while (doc.querySelector('[data-edit]') && pass < 10) {
         const elements = doc.querySelectorAll('[data-edit]');
-        console.log(`[Парсер] Проход ${pass + 1}: найдено ${elements.length} элементов data-edit`);
-        
         elements.forEach(el => {
             const parent = el.parentNode;
             if (!parent) return;
-            
             while (el.firstChild) {
                 parent.insertBefore(el.firstChild, el);
             }
@@ -577,16 +578,15 @@ function processHtml(html) {
         pass++;
     }
     
-    // 2. Удаляем все атрибуты data-img
-    const imgElements = doc.querySelectorAll('[data-img]');
-    console.log(`[Парсер] Удаляем ${imgElements.length} атрибутов data-img`);
-    imgElements.forEach(el => el.removeAttribute('data-img'));
+    // 2. Удаляем все атрибуты data-img (сами элементы остаются!)
+    doc.querySelectorAll('[data-img]').forEach(el => {
+        el.removeAttribute('data-img');
+    });
     
     // 3. Нормализуем документ (объединяет соседние текстовые узлы)
     doc.body.normalize();
-    console.log('[Парсер] Нормализация завершена');
     
-    // 4. Удаляем пустые текстовые узлы
+    // 4. Удаляем пустые текстовые узлы (могли появиться после распутывания)
     const textWalker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
     const emptyNodes = [];
     let node;
@@ -595,11 +595,25 @@ function processHtml(html) {
             emptyNodes.push(node);
         }
     }
-    console.log(`[Парсер] Удаляем ${emptyNodes.length} пустых текстовых узлов`);
     emptyNodes.forEach(n => n.parentNode?.removeChild(n));
     
-    const remaining = doc.querySelectorAll('[data-edit]').length;
-    console.log(`[Парсер] ✓ Очистка завершена. Осталось меток: ${remaining}`);
+    // Проверяем результат
+    const afterEdit = doc.querySelectorAll('[data-edit]').length;
+    const afterImg = doc.querySelectorAll('[data-img]').length;
+    console.log(`[Очистка] После: ${afterEdit} data-edit, ${afterImg} data-img`);
+    
+    return {
+        html: '<!DOCTYPE html>\n' + doc.documentElement.outerHTML,
+        removedEdit: beforeEdit,
+        removedImg: beforeImg
+    };
+}
+
+// ============ УМНЫЙ ПАРСЕР HTML (только ДОБАВЛЯЕТ метки) ============
+function processHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    console.log('[Парсер] === Начинаем обработку HTML ===');
 
     let textCounter = 0;
 
@@ -823,6 +837,14 @@ async function prepareSite() {
         if (!f.text.trim()) throw new Error('index.html пуст или не прочитан — подготовка остановлена, чтобы не затереть сайт');
         li(`index.html загружен (${(f.text.length / 1024).toFixed(1)} КБ)`, 'done');
 
+        // Если в HTML уже есть метки — сначала чистим (чтобы не было дублей)
+        if (f.text.includes('data-edit="') || f.text.includes('data-img=')) {
+            li('Обнаружены старые метки — очищаем...', 'working');
+            const cleaned = cleanHtmlMarks(f.text);
+            f.text = cleaned.html;
+            li(`Удалено: ${cleaned.removedEdit} text-меток и ${cleaned.removedImg} img-меток`, 'done');
+        }
+
         li('Анализ контента и расстановка меток...', 'working');
         const r = processHtml(f.text);
         li(`Найдено ${r.textCount} текстов (включая телефоны, email, цены) и ${r.imgCount} картинок`, 'done');
@@ -844,6 +866,61 @@ async function prepareSite() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-download"></i> Подготовить сайт';
+    }
+}
+
+// ============ НОВАЯ ФУНКЦИЯ: ОЧИСТКА МЕТОК ПО КНОПКЕ ============
+async function cleanMarks() {
+    // Проверяем несохранённые правки
+    if (Object.keys(pending).length > 0) {
+        if (!confirm('У вас есть несохранённые правки. Они будут потеряны при очистке. Продолжить?')) return;
+        pending = {};
+        markUnsaved();
+    }
+    
+    if (!confirm(
+        'Удалить ВСЕ метки редактирования (data-edit, data-img) из index.html?\n\n' +
+        'Сайт вернётся в исходное состояние, но:\n' +
+        '• Все ваши правки текстов, телефонов и email СОХРАНЯТСЯ\n' +
+        '• Ссылки tel: и mailto: останутся рабочими\n' +
+        '• После очистки нужно снова нажать "Подготовить сайт"\n\n' +
+        'Продолжить?'
+    )) return;
+    
+    const btn = $('cleanBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Очищаю...';
+    
+    try {
+        showStatus('Загружаю index.html...', 'info');
+        const f = await getFile('index.html');
+        
+        if (!f.text.includes('data-edit="') && !f.text.includes('data-img=')) {
+            showStatus('Меток в файле нет — очищать нечего', 'info');
+            return;
+        }
+        
+        showStatus('Удаляю метки...', 'info');
+        const result = cleanHtmlMarks(f.text);
+        
+        showStatus('Сохраняю очищенный файл...', 'info');
+        await putFile('index.html', b64e(result.html), f.sha, 'Очистка меток редактирования (data-edit, data-img)');
+        
+        showStatus(`✓ Очищено: ${result.removedEdit} text-меток и ${result.removedImg} img-меток. Сайт в исходном состоянии.`, 'success');
+        
+        // Переходим на экран подготовки
+        setTimeout(() => {
+            showSetup();
+            $('setupTitle').textContent = 'Сайт очищен — готов к подготовке';
+        }, 1500);
+        
+    } catch (e) {
+        const i = interpretError(e.status, e.body);
+        showStatus(`✗ Ошибка: ${i.title}`, 'error');
+        console.error('Ошибка очистки:', e);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-broom"></i> Очистить метки';
     }
 }
 
@@ -909,7 +986,6 @@ function applyEdit() {
             const el = d.querySelector(`[data-edit="${CSS.escape(editKey)}"]`);
             if (el) {
                 el.textContent = keepWs(el.textContent, v);
-                // Синхронизируем href для телефонов, email, мессенджеров
                 syncHref(el, v);
             }
         }
@@ -959,7 +1035,6 @@ async function saveAll() {
                 const el = doc.querySelector(`[data-edit="${CSS.escape(key)}"]`);
                 if (el) {
                     el.textContent = pending[k].value;
-                    // Синхронизируем href для телефонов, email, мессенджеров
                     syncHref(el, pending[k].value);
                     done.push(k);
                 } else {
@@ -1013,6 +1088,7 @@ async function resetSite() {
 $('checkBtn').addEventListener('click', checkToken);
 $('checkBtn2').addEventListener('click', checkToken);
 $('reloadBtn').addEventListener('click', reloadPreview);
+$('cleanBtn').addEventListener('click', cleanMarks);
 $('resetBtn').addEventListener('click', resetSite);
 $('saveBtn').addEventListener('click', saveAll);
 $('logoutBtn').addEventListener('click', logout);
