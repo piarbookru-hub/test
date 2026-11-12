@@ -510,38 +510,99 @@ function normImgPath(src) {
     return (!p || p.startsWith('../')) ? null : p;
 }
 
+// ============ СИНХРОНИЗАЦИЯ HREF (телефоны, email, мессенджеры) ============
+function syncHref(el, newValue) {
+    const parentLink = el.closest('a[href^="tel:"], a[href^="mailto:"], a[href*="t.me"], a[href*="wa.me"], a[href*="vk.com"], a[href*="instagram.com"]');
+    if (!parentLink) return;
+    
+    const href = parentLink.getAttribute('href') || '';
+    
+    if (href.startsWith('tel:')) {
+        const cleanNum = newValue.replace(/[^\d+]/g, '');
+        if (cleanNum.length >= 7) {
+            parentLink.setAttribute('href', 'tel:' + cleanNum);
+        }
+    } else if (href.startsWith('mailto:')) {
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newValue.trim())) {
+            parentLink.setAttribute('href', 'mailto:' + newValue.trim());
+        }
+    } else if (href.includes('t.me/') || href.includes('telegram.me/')) {
+        const username = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//, '');
+        if (username && /^[a-zA-Z0-9_]{3,}$/.test(username)) {
+            parentLink.setAttribute('href', 'https://t.me/' + username);
+        }
+    } else if (href.includes('wa.me/')) {
+        const cleanNum = newValue.replace(/[^\d]/g, '');
+        if (cleanNum.length >= 7) {
+            parentLink.setAttribute('href', 'https://wa.me/' + cleanNum);
+        }
+    } else if (href.includes('vk.com/')) {
+        const username = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/vk\.com\//, '');
+        if (username && /^[a-zA-Z0-9_.]+$/.test(username)) {
+            parentLink.setAttribute('href', 'https://vk.com/' + username);
+        }
+    } else if (href.includes('instagram.com/')) {
+        const username = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '');
+        if (username && /^[a-zA-Z0-9_.]+$/.test(username)) {
+            parentLink.setAttribute('href', 'https://instagram.com/' + username);
+        }
+    }
+}
+
 // ============ УМНЫЙ ПАРСЕР HTML ============
 function processHtml(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
-    // ═══════════════════════════════════════════════════════
-    // ШАГ 0: УДАЛЯЕМ ВСЕ СТАРЫЕ МЕТКИ (чтобы применить все правила заново)
-    // ═══════════════════════════════════════════════════════
-    
-    // Распутываем <span data-edit="...">текст</span> обратно в голый текст
-    doc.querySelectorAll('[data-edit]').forEach(el => {
-        const parent = el.parentNode;
-        if (!parent) return;
-        // Переносим все дочерние узлы span перед ним
-        while (el.firstChild) {
-            parent.insertBefore(el.firstChild, el);
-        }
-        // Удаляем пустой span
-        parent.removeChild(el);
-    });
-    
-    // Удаляем атрибут data-img со всех элементов (но сам элемент оставляем)
-    doc.querySelectorAll('[data-img]').forEach(el => {
-        el.removeAttribute('data-img');
-    });
-    
-    // Нормализуем документ (объединяет соседние текстовые узлы)
-    doc.body.normalize();
+    console.log('[Парсер] === Начинаем обработку HTML ===');
 
-    // Счётчик всегда начинаем с 1 (метки пересоздаются заново)
+    // ═══════════════════════════════════════════════════════
+    // ШАГ 0: ПОЛНАЯ ОЧИСТКА СТАРЫХ МЕТОК
+    // ═══════════════════════════════════════════════════════
+    
+    // 1. Рекурсивно удаляем ВСЕ элементы с data-edit
+    let pass = 0;
+    while (doc.querySelector('[data-edit]') && pass < 10) {
+        const elements = doc.querySelectorAll('[data-edit]');
+        console.log(`[Парсер] Проход ${pass + 1}: найдено ${elements.length} элементов data-edit`);
+        
+        elements.forEach(el => {
+            const parent = el.parentNode;
+            if (!parent) return;
+            
+            while (el.firstChild) {
+                parent.insertBefore(el.firstChild, el);
+            }
+            parent.removeChild(el);
+        });
+        pass++;
+    }
+    
+    // 2. Удаляем все атрибуты data-img
+    const imgElements = doc.querySelectorAll('[data-img]');
+    console.log(`[Парсер] Удаляем ${imgElements.length} атрибутов data-img`);
+    imgElements.forEach(el => el.removeAttribute('data-img'));
+    
+    // 3. Нормализуем документ (объединяет соседние текстовые узлы)
+    doc.body.normalize();
+    console.log('[Парсер] Нормализация завершена');
+    
+    // 4. Удаляем пустые текстовые узлы
+    const textWalker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+    const emptyNodes = [];
+    let node;
+    while (node = textWalker.nextNode()) {
+        if (node.textContent.trim() === '') {
+            emptyNodes.push(node);
+        }
+    }
+    console.log(`[Парсер] Удаляем ${emptyNodes.length} пустых текстовых узлов`);
+    emptyNodes.forEach(n => n.parentNode?.removeChild(n));
+    
+    const remaining = doc.querySelectorAll('[data-edit]').length;
+    console.log(`[Парсер] ✓ Очистка завершена. Осталось меток: ${remaining}`);
+
     let textCounter = 0;
 
-    // Теги, которые нельзя трогать
     const SKIP_TAGS = new Set([
         'script', 'style', 'title', 'meta', 'noscript',
         'input', 'textarea', 'select', 'option', 'button',
@@ -550,15 +611,10 @@ function processHtml(html) {
     ]);
 
     // ============ УМНЫЕ ПАТТЕРНЫ ============
-    // Телефон: +7 или 8 + код + номер в любом формате
     const PHONE_REGEX = /(?:\+7|8)[\s\-\(]*\d{3}[\s\-\)]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}/;
-    // Короткий телефон: XXX-XX-XX или XXX XX XX
     const PHONE_SIMPLE = /^\d{3}[\s\-]\d{2}[\s\-]\d{2}$/;
-    // Email: что-то@что-то.что-то (вся строка)
     const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-    // Валюты
     const CURRENCY_REGEX = /[₽$€£¥₴₸]/;
-    // Мессенджеры и соцсети
     const MESSENGER_REGEX = /\b(t\.me|wa\.me|vk\.com|instagram\.com)\/[a-zA-Z0-9_.]+/;
 
     // ============ ПРАВИЛО 1: КИРИЛЛИЦА ============
@@ -580,10 +636,12 @@ function processHtml(html) {
     );
 
     const nodesToProcess = [];
-    let node;
-    while (node = walker.nextNode()) nodesToProcess.push(node);
+    let node2;
+    while (node2 = walker.nextNode()) nodesToProcess.push(node2);
 
     let textCount = 0;
+    console.log(`[Парсер] Правило 1 (кириллица): найдено ${nodesToProcess.length} текстовых узлов`);
+    
     nodesToProcess.forEach(textNode => {
         const parent = textNode.parentElement;
         const key = `auto_${++textCounter}`;
@@ -595,7 +653,6 @@ function processHtml(html) {
     });
 
     // ============ ПРАВИЛО 2: УМНОЕ РАСПОЗНАВАНИЕ (телефоны, email, цены) ============
-    // Собираем все элементы БЕЗ вложенных детей в массив (т.к. DOM меняется)
     const candidates = [];
     doc.body.querySelectorAll('*').forEach(el => {
         if (el.hasAttribute('data-edit')) return;
@@ -605,13 +662,12 @@ function processHtml(html) {
         candidates.push(el);
     });
     
+    let smartCount = 0;
     candidates.forEach(el => {
-        // Повторная проверка (DOM мог измениться)
         if (el.hasAttribute('data-edit')) return;
         
         const text = el.textContent.trim();
         if (!text) return;
-        // Пропускаем если есть кириллица (уже помечена в правиле 1)
         if (/[а-яА-ЯёЁ]/.test(text)) return;
 
         const isPhone = PHONE_REGEX.test(text) || PHONE_SIMPLE.test(text);
@@ -627,11 +683,14 @@ function processHtml(html) {
             el.textContent = '';
             el.appendChild(span);
             textCount++;
+            smartCount++;
         }
     });
+    console.log(`[Парсер] Правило 2 (умное): найдено ${smartCount} элементов`);
 
     // ============ ПРАВИЛО 3: ССЫЛКИ tel: и mailto: ============
     const telMailLinks = doc.querySelectorAll('a[href^="tel:"], a[href^="mailto:"]');
+    let linkCount = 0;
     telMailLinks.forEach(el => {
         if (el.hasAttribute('data-edit')) return;
         if (el.closest('form')) return;
@@ -647,9 +706,12 @@ function processHtml(html) {
         el.textContent = '';
         el.appendChild(span);
         textCount++;
+        linkCount++;
     });
+    console.log(`[Парсер] Правило 3 (tel/mailto): найдено ${linkCount} ссылок`);
 
     // ============ ПРАВИЛО 4: РУЧНЫЕ МЕТКИ data-editable ============
+    let manualCount = 0;
     doc.querySelectorAll('[data-editable]').forEach(el => {
         if (el.hasAttribute('data-edit')) return;
         const text = el.textContent.trim();
@@ -667,9 +729,12 @@ function processHtml(html) {
         }
         el.removeAttribute('data-editable');
         textCount++;
+        manualCount++;
     });
+    console.log(`[Парсер] Правило 4 (ручные метки): найдено ${manualCount} элементов`);
 
     // ============ ПРАВИЛО 5: ДОП. СЕЛЕКТОРЫ из config.js ============
+    let extraCount = 0;
     const extraSelectors = (CMS_CONFIG.extraEditableSelectors || []).join(', ');
     if (extraSelectors) {
         doc.querySelectorAll(extraSelectors).forEach(el => {
@@ -689,8 +754,10 @@ function processHtml(html) {
                 el.setAttribute('data-edit', key);
             }
             textCount++;
+            extraCount++;
         });
     }
+    console.log(`[Парсер] Правило 5 (доп. селекторы): найдено ${extraCount} элементов`);
 
     // ============ КАРТИНКИ ============
     const CORE_IMAGE_WRAPPERS = [
@@ -724,6 +791,8 @@ function processHtml(html) {
         }
         imgCount++;
     });
+    console.log(`[Парсер] Картинки: найдено ${imgCount} изображений`);
+    console.log(`[Парсер] ✓ ИТОГО: ${textCount} текстов + ${imgCount} картинок = готово`);
 
     return {
         html: '<!DOCTYPE html>\n' + doc.documentElement.outerHTML,
@@ -838,7 +907,11 @@ function applyEdit() {
         pending['t:' + editKey] = { type: 'text', value: v };
         if (d) {
             const el = d.querySelector(`[data-edit="${CSS.escape(editKey)}"]`);
-            if (el) el.textContent = keepWs(el.textContent, v);
+            if (el) {
+                el.textContent = keepWs(el.textContent, v);
+                // Синхронизируем href для телефонов, email, мессенджеров
+                syncHref(el, v);
+            }
         }
         showStatus('Изменения применены. Сохраните в GitHub.');
     } else if (editKind === 'image') {
@@ -886,6 +959,8 @@ async function saveAll() {
                 const el = doc.querySelector(`[data-edit="${CSS.escape(key)}"]`);
                 if (el) {
                     el.textContent = pending[k].value;
+                    // Синхронизируем href для телефонов, email, мессенджеров
+                    syncHref(el, pending[k].value);
                     done.push(k);
                 } else {
                     failed.push(k);
