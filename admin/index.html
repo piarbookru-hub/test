@@ -462,10 +462,11 @@ function hookIframe() {
     if (!d || !d.head) return;
 
     const st = d.createElement('style');
-    st.textContent = `[data-edit]:hover, img[data-img]:hover { outline: 2px dashed #F40009; outline-offset: 2px; cursor: pointer; }`;
+    st.textContent = `[data-edit]:hover, img[data-img]:hover, [data-img]:hover { outline: 2px dashed #F40009; outline-offset: 2px; cursor: pointer; }`;
     d.head.appendChild(st);
 
     d.addEventListener('click', ev => {
+        // Клик на текст
         const textEl = ev.target.closest && ev.target.closest('[data-edit]');
         if (textEl) {
             ev.preventDefault();
@@ -473,13 +474,20 @@ function hookIframe() {
             openText(textEl.getAttribute('data-edit'), textEl.textContent);
             return;
         }
-        const imgEl = ev.target.closest && ev.target.closest('img[data-img]');
+        // Клик на картинку ИЛИ на её wrapper (gallery-item, team-photo, img-wrapper)
+        const imgEl = ev.target.closest && (
+            ev.target.closest('img[data-img]') ||
+            ev.target.closest('[data-img]')
+        );
         if (imgEl) {
             ev.preventDefault();
             ev.stopPropagation();
-            openImage(imgEl.getAttribute('data-img'), imgEl.currentSrc || imgEl.src);
+            const path = imgEl.getAttribute('data-img');
+            const actualImg = imgEl.tagName === 'IMG' ? imgEl : imgEl.querySelector('img');
+            openImage(path, actualImg ? (actualImg.currentSrc || actualImg.src) : '');
             return;
         }
+        // Не переходим по ссылкам внутри превью
         if (ev.target.closest && ev.target.closest('a[href]')) {
             ev.preventDefault();
         }
@@ -542,14 +550,22 @@ function processHtml(html) {
         span.setAttribute('data-edit', key);
         span.textContent = textNode.textContent;
         parent.replaceChild(span, textNode);
+        textCount++;
     });
 
+    // Обработка картинок: data-img на wrapper (если есть), иначе на сам img
     let imgCount = 0;
     doc.querySelectorAll('img').forEach(img => {
-        if (img.hasAttribute('data-img')) return;
+        // Проверяем что wrapper ещё не помечен
+        const wrapper = img.closest('.img-wrapper, .gallery-item, .team-photo, .about-img-wrapper, .hero-img-wrapper, .product-image');
+        if (wrapper && wrapper.hasAttribute('data-img')) return;
+        if (!wrapper && img.hasAttribute('data-img')) return;
+
         const path = normImgPath(img.getAttribute('src'));
         if (!path) return;
-        img.setAttribute('data-img', path);
+
+        const target = wrapper || img;
+        target.setAttribute('data-img', path);
         imgCount++;
     });
 
@@ -642,7 +658,7 @@ function openImage(path, src) {
         </label>
         <div id="imagePreview" style="margin-top: 12px;"></div>
     `;
-    $('curImg').src = src;
+    if (src) $('curImg').src = src;
     $('imageFileInput').addEventListener('change', e => {
         const file = e.target.files[0];
         if (!file) return;
@@ -673,10 +689,13 @@ function applyEdit() {
         if (!pendingImg) return showStatus('Выберите файл', 'error');
         pending['i:' + editKey] = { type: 'image', data: pendingImg, path: editKey };
         if (d) {
-            const img = d.querySelector(`img[data-img="${CSS.escape(editKey)}"]`);
-            if (img) {
-                img.removeAttribute('srcset');
-                img.src = pendingImg;
+            const target = d.querySelector(`[data-img="${CSS.escape(editKey)}"]`);
+            if (target) {
+                const img = target.tagName === 'IMG' ? target : target.querySelector('img');
+                if (img) {
+                    img.removeAttribute('srcset');
+                    img.src = pendingImg;
+                }
             }
         }
         showStatus('Фото изменено. Сохраните в GitHub.');
