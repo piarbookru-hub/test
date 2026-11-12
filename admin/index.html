@@ -487,7 +487,6 @@ function hookIframe() {
         }
     }, true);
 
-    // Esc в iframe → закрываем панель
     d.addEventListener('keydown', ev => {
         if (ev.key === 'Escape') {
             window.parent.postMessage({ type: 'CLOSE_PANEL' }, '*');
@@ -495,12 +494,10 @@ function hookIframe() {
     });
 }
 
-// Esc в админке → закрываем панель
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && $('editPanel').classList.contains('active')) closePanel();
 });
 
-// Команда закрытия из iframe
 window.addEventListener('message', ev => {
     if (ev.data && ev.data.type === 'CLOSE_PANEL') closePanel();
 });
@@ -517,13 +514,32 @@ function normImgPath(src) {
 function processHtml(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
-    // Находим максимальный существующий номер метки
-    let maxExisting = 0;
-    doc.querySelectorAll('[data-edit^="auto_"]').forEach(el => {
-        const num = parseInt(el.getAttribute('data-edit').replace('auto_', ''), 10);
-        if (!isNaN(num) && num > maxExisting) maxExisting = num;
+    // ═══════════════════════════════════════════════════════
+    // ШАГ 0: УДАЛЯЕМ ВСЕ СТАРЫЕ МЕТКИ (чтобы применить все правила заново)
+    // ═══════════════════════════════════════════════════════
+    
+    // Распутываем <span data-edit="...">текст</span> обратно в голый текст
+    doc.querySelectorAll('[data-edit]').forEach(el => {
+        const parent = el.parentNode;
+        if (!parent) return;
+        // Переносим все дочерние узлы span перед ним
+        while (el.firstChild) {
+            parent.insertBefore(el.firstChild, el);
+        }
+        // Удаляем пустой span
+        parent.removeChild(el);
     });
-    let textCounter = maxExisting;
+    
+    // Удаляем атрибут data-img со всех элементов (но сам элемент оставляем)
+    doc.querySelectorAll('[data-img]').forEach(el => {
+        el.removeAttribute('data-img');
+    });
+    
+    // Нормализуем документ (объединяет соседние текстовые узлы)
+    doc.body.normalize();
+
+    // Счётчик всегда начинаем с 1 (метки пересоздаются заново)
+    let textCounter = 0;
 
     // Теги, которые нельзя трогать
     const SKIP_TAGS = new Set([
@@ -537,15 +553,15 @@ function processHtml(html) {
     // Телефон: +7 или 8 + код + номер в любом формате
     const PHONE_REGEX = /(?:\+7|8)[\s\-\(]*\d{3}[\s\-\)]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}/;
     // Короткий телефон: XXX-XX-XX или XXX XX XX
-    const PHONE_SIMPLE = /\d{3}[\s\-]\d{2}[\s\-]\d{2}/;
-    // Email: что-то@что-то.что-то
+    const PHONE_SIMPLE = /^\d{3}[\s\-]\d{2}[\s\-]\d{2}$/;
+    // Email: что-то@что-то.что-то (вся строка)
     const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
     // Валюты
     const CURRENCY_REGEX = /[₽$€£¥₴₸]/;
     // Мессенджеры и соцсети
     const MESSENGER_REGEX = /\b(t\.me|wa\.me|vk\.com|instagram\.com)\/[a-zA-Z0-9_.]+/;
 
-    // ============ ПРАВИЛО 1: КИРИЛЛИЦА (как было) ============
+    // ============ ПРАВИЛО 1: КИРИЛЛИЦА ============
     const walker = doc.createTreeWalker(
         doc.body,
         NodeFilter.SHOW_TEXT,
@@ -578,24 +594,29 @@ function processHtml(html) {
         textCount++;
     });
 
-    // ============ ПРАВИЛО 2: УМНОЕ РАСПОЗНАВАНИЕ ============
-    // Проходим по всем элементам БЕЗ вложенных детей
-    const allElements = doc.body.querySelectorAll('*');
-    allElements.forEach(el => {
+    // ============ ПРАВИЛО 2: УМНОЕ РАСПОЗНАВАНИЕ (телефоны, email, цены) ============
+    // Собираем все элементы БЕЗ вложенных детей в массив (т.к. DOM меняется)
+    const candidates = [];
+    doc.body.querySelectorAll('*').forEach(el => {
         if (el.hasAttribute('data-edit')) return;
         if (SKIP_TAGS.has(el.tagName.toLowerCase())) return;
         if (el.closest('form')) return;
         if (el.children.length > 0) return;
-
+        candidates.push(el);
+    });
+    
+    candidates.forEach(el => {
+        // Повторная проверка (DOM мог измениться)
+        if (el.hasAttribute('data-edit')) return;
+        
         const text = el.textContent.trim();
         if (!text) return;
-        // Пропускаем если уже есть кириллица (помечена в правиле 1)
+        // Пропускаем если есть кириллица (уже помечена в правиле 1)
         if (/[а-яА-ЯёЁ]/.test(text)) return;
 
-        // Проверяем паттерны
         const isPhone = PHONE_REGEX.test(text) || PHONE_SIMPLE.test(text);
         const isEmail = EMAIL_REGEX.test(text) && text.length < 100;
-        const isCurrency = CURRENCY_REGEX.test(text) && text.length < 30;
+        const isCurrency = CURRENCY_REGEX.test(text) && text.length < 40;
         const isMessenger = MESSENGER_REGEX.test(text);
 
         if (isPhone || isEmail || isCurrency || isMessenger) {
@@ -614,7 +635,7 @@ function processHtml(html) {
     telMailLinks.forEach(el => {
         if (el.hasAttribute('data-edit')) return;
         if (el.closest('form')) return;
-        if (el.querySelector('[data-edit]')) return; // уже помечен в правиле 2
+        if (el.querySelector('[data-edit]')) return;
 
         const text = el.textContent.trim();
         if (!text) return;
