@@ -148,7 +148,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
     </div>
 
     <div class="hint-banner" id="hintBanner">
-        <i class="fas fa-lightbulb"></i> Наведите на любой <strong>текст с кириллицей</strong> или <strong>фото</strong> и кликните — откроется редактор.
+        <i class="fas fa-lightbulb"></i> Наведите на любой <strong>текст с кириллицей</strong> или <strong>фото</strong> и кликните — откроется редактор. Нажмите <strong>Esc</strong> для закрытия.
     </div>
 
     <div class="setup-screen" id="setupScreen">
@@ -486,7 +486,22 @@ function hookIframe() {
             ev.preventDefault();
         }
     }, true);
+
+    // НОВОЕ: обработка Esc внутри iframe → закрытие панели редактирования
+    d.addEventListener('keydown', ev => {
+        if (ev.key === 'Escape') {
+            // Отправляем команду родительской админке закрыть панель
+            window.parent.postMessage({ type: 'CLOSE_PANEL' }, '*');
+        }
+    });
 }
+
+// Слушаем команду закрытия из iframe
+window.addEventListener('message', ev => {
+    if (ev.data && ev.data.type === 'CLOSE_PANEL') {
+        closePanel();
+    }
+});
 
 function normImgPath(src) {
     if (!src || /^(data:|blob:|https?:|\/\/)/i.test(src)) return null;
@@ -809,6 +824,7 @@ $('applyBtn').addEventListener('click', applyEdit);
 $('cancelBtn').addEventListener('click', closePanel);
 $('closePanelBtn').addEventListener('click', closePanel);
 
+// Esc работает и в админке, и в iframe (iframe шлёт команду CLOSE_PANEL родителю)
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && $('editPanel').classList.contains('active')) closePanel();
 });
