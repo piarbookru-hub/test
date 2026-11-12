@@ -466,7 +466,6 @@ function hookIframe() {
     d.head.appendChild(st);
 
     d.addEventListener('click', ev => {
-        // Клик на текст
         const textEl = ev.target.closest && ev.target.closest('[data-edit]');
         if (textEl) {
             ev.preventDefault();
@@ -474,7 +473,6 @@ function hookIframe() {
             openText(textEl.getAttribute('data-edit'), textEl.textContent);
             return;
         }
-        // Клик на картинку ИЛИ на её wrapper (gallery-item, team-photo, img-wrapper)
         const imgEl = ev.target.closest && (
             ev.target.closest('img[data-img]') ||
             ev.target.closest('[data-img]')
@@ -487,7 +485,6 @@ function hookIframe() {
             openImage(path, actualImg ? (actualImg.currentSrc || actualImg.src) : '');
             return;
         }
-        // Не переходим по ссылкам внутри превью
         if (ev.target.closest && ev.target.closest('a[href]')) {
             ev.preventDefault();
         }
@@ -553,11 +550,26 @@ function processHtml(html) {
         textCount++;
     });
 
-    // Обработка картинок: data-img на wrapper (если есть), иначе на сам img
+    // Обработка картинок — расширенный список wrapper'ов (залы, портфолио, услуги и т.д.)
     let imgCount = 0;
     doc.querySelectorAll('img').forEach(img => {
-        // Проверяем что wrapper ещё не помечен
-        const wrapper = img.closest('.img-wrapper, .gallery-item, .team-photo, .about-img-wrapper, .hero-img-wrapper, .product-image');
+        const wrapper = img.closest(
+            '.img-wrapper, ' +
+            '.gallery-item, ' +
+            '.team-photo, ' +
+            '.about-img-wrapper, ' +
+            '.hero-img-wrapper, ' +
+            '.product-image, ' +
+            '.space-card, ' +
+            '.space-image, ' +
+            '.portfolio-item, ' +
+            '.work-card, ' +
+            '.service-image, ' +
+            '.blog-image, ' +
+            '[class*="card"], ' +
+            '[class*="item"]'
+        );
+
         if (wrapper && wrapper.hasAttribute('data-img')) return;
         if (!wrapper && img.hasAttribute('data-img')) return;
 
