@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>Админ-панель — визуальный редактор</title>
-    <link rel="icon" type="image/x-icon" href="favicon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="config.js"></script>
@@ -127,7 +128,7 @@
             border: 1px solid #2a2a2a;
             text-align: center;
         }
-        .setup-card i { font-size: 48px; color: #F40009; margin-bottom: 16px; }
+        .setup-card > i { font-size: 48px; color: #F40009; margin-bottom: 16px; }
         .setup-card h2 { font-size: 20px; margin-bottom: 12px; }
         .setup-card p { color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
         .setup-card strong { color: #fff; }
@@ -215,8 +216,9 @@
             transition: transform 0.3s;
             z-index: 1000;
             box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+            visibility: hidden;
         }
-        .edit-panel.active { transform: translateY(0); }
+        .edit-panel.active { transform: translateY(0); visibility: visible; }
         .edit-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .edit-panel-header h3 { font-size: 14px; font-weight: 600; }
         .edit-panel-header h3 .key-badge { background: #2a2a2a; color: #888; padding: 2px 8px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 11px; margin-left: 8px; }
@@ -267,13 +269,13 @@
             <h1>🔐 Вход в админ-панель</h1>
             <p class="subtitle">Введите ваш GitHub Personal Access Token</p>
             <div class="form-group">
-                <label>Personal Access Token</label>
+                <label for="tokenInput">Personal Access Token</label>
                 <input type="password" id="tokenInput" placeholder="ghp_..." autocomplete="off">
             </div>
             <button class="btn" id="loginBtn">Войти</button>
             <div class="error-msg" id="loginError"></div>
-            <a href="https://github.com/settings/tokens/new?description=CMS-Admin&scopes=repo" target="_blank" class="help-link">
-                <i class="fas fa-external-link-alt"></i> Создать новый токен (с правильными правами)
+            <a href="https://github.com/settings/tokens/new?description=CMS-Admin&scopes=repo" target="_blank" rel="noopener noreferrer" class="help-link">
+                <i class="fas fa-external-link-alt"></i> Создать новый токен
             </a>
         </div>
     </div>
@@ -287,19 +289,19 @@
                 <span class="unsaved-badge" id="unsavedBadge">● есть несохранённые</span>
             </h1>
             <div class="toolbar-actions">
-                <button class="toolbar-btn" onclick="checkTokenValidity()" title="Проверить токен">
+                <button class="toolbar-btn" onclick="checkTokenValidity()" title="Проверить токен" aria-label="Проверить токен">
                     <i class="fas fa-shield-alt"></i> Проверить
                 </button>
-                <button class="toolbar-btn" onclick="reloadIframe()" title="Обновить превью">
+                <button class="toolbar-btn" onclick="reloadIframe()" title="Обновить превью" aria-label="Обновить превью">
                     <i class="fas fa-sync"></i> Обновить
                 </button>
-                <button class="toolbar-btn" onclick="resetSite()" title="Подготовить заново">
+                <button class="toolbar-btn" onclick="resetSite()" title="Подготовить заново" aria-label="Подготовить заново">
                     <i class="fas fa-redo"></i> Переподготовить
                 </button>
-                <button class="toolbar-btn primary" id="saveBtn" onclick="saveAllChanges()">
+                <button class="toolbar-btn primary" id="saveBtn" onclick="saveAllChanges()" aria-label="Сохранить в GitHub">
                     <i class="fas fa-cloud-upload-alt"></i> Сохранить в GitHub
                 </button>
-                <button class="toolbar-btn" onclick="logout()" title="Выйти">
+                <button class="toolbar-btn" onclick="logout()" title="Выйти" aria-label="Выйти">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
@@ -334,7 +336,7 @@
                     <button class="btn btn-secondary btn-small" onclick="checkTokenValidity()">
                         <i class="fas fa-shield-alt"></i> Проверить токен
                     </button>
-                    <a href="https://github.com/settings/tokens/new?description=CMS-Admin&scopes=repo" target="_blank" class="btn btn-secondary btn-small" style="text-decoration:none; text-align:center; color:#fff;">
+                    <a href="https://github.com/settings/tokens/new?description=CMS-Admin&scopes=repo" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-small" style="text-decoration:none; text-align:center; color:#fff;">
                         <i class="fas fa-plus"></i> Новый токен
                     </a>
                 </div>
@@ -357,7 +359,7 @@
     <div class="edit-panel" id="editPanel">
         <div class="edit-panel-header">
             <h3 id="editPanelTitle">Редактирование <span class="key-badge" id="editKey"></span></h3>
-            <button class="edit-panel-close" onclick="closeEditPanel()">✕</button>
+            <button class="edit-panel-close" onclick="closeEditPanel()" aria-label="Закрыть">✕</button>
         </div>
         <div id="editPanelContent"></div>
         <div class="edit-panel-actions">
@@ -366,33 +368,58 @@
         </div>
     </div>
 
-    <div class="status-bar" id="statusBar"></div>
+    <div class="status-bar" id="statusBar" aria-live="polite"></div>
 
     <script>
-        let currentToken = localStorage.getItem('gh_token');
+        // ============ ПРОВЕРКА КОНФИГА ============
+        if (typeof CMS_CONFIG === 'undefined') {
+            document.body.innerHTML = '<div style="padding:40px;color:#ff4444;">Ошибка: не загружен config.js. Создайте файл admin/config.js.</div>';
+            throw new Error('config.js не загружен');
+        }
+
+        // ============ ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ============
+        let currentToken = sessionStorage.getItem('gh_token');
         let currentHtml = '';
         let currentHtmlSha = null;
-        let editableMap = {};
         let pendingChanges = {};
         let currentEditKey = null;
         let currentEditType = null;
+        let statusTimer = null;
 
         document.getElementById('projectNameHeader').textContent = CMS_CONFIG.projectName;
         document.getElementById('repoNameHeader').textContent = `· ${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
 
+        // ============ УТИЛИТЫ ============
         function showStatus(msg, type = 'success') {
             const bar = document.getElementById('statusBar');
+            if (statusTimer) clearTimeout(statusTimer);
             bar.textContent = msg;
             bar.className = 'status-bar show ' + type;
-            setTimeout(() => bar.classList.remove('show'), 3500);
+            statusTimer = setTimeout(() => bar.classList.remove('show'), 3500);
         }
 
-        function decodeBase64(b) {
-            return decodeURIComponent(escape(atob(b)));
+        // Современное декодирование UTF-8 (без устаревших escape/unescape)
+        function decodeBase64Utf8(base64) {
+            try {
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                return new TextDecoder('utf-8').decode(bytes);
+            } catch (e) {
+                // Fallback для ASCII
+                return atob(base64);
+            }
         }
 
-        function encodeBase64(s) {
-            return btoa(unescape(encodeURIComponent(s)));
+        function encodeBase64Utf8(str) {
+            const bytes = new TextEncoder().encode(str);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
         }
 
         function markUnsaved() {
@@ -403,69 +430,132 @@
             }
         }
 
-        // ============ ДЕТАЛЬНАЯ ОБРАБОТКА ОШИБОК ============
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Кодирование имени файла для URL (кириллица, пробелы, спецсимволы)
+        function encodePath(path) {
+            return path.split('/').map(segment => encodeURIComponent(segment)).join('/');
+        }
+
+        // ============ GITHUB API ============
         async function githubApiCall(url, options = {}) {
             const res = await fetch(url, options);
-            
+            const textBody = await res.text();
+            let jsonBody = null;
+            try {
+                jsonBody = textBody ? JSON.parse(textBody) : null;
+            } catch (e) {
+                jsonBody = null;
+            }
+
             if (!res.ok) {
-                let errorBody = '';
-                try {
-                    const errJson = await res.json();
-                    errorBody = errJson.message || JSON.stringify(errJson);
-                } catch (e) {
-                    errorBody = await res.text();
-                }
-                
-                const error = new Error(`HTTP ${res.status}: ${errorBody}`);
+                const error = new Error(`HTTP ${res.status}: ${jsonBody?.message || textBody || res.statusText}`);
                 error.status = res.status;
-                error.body = errorBody;
+                error.body = jsonBody?.message || textBody;
+                error.jsonBody = jsonBody;
                 throw error;
             }
-            
-            return res;
+
+            return { response: res, json: jsonBody, text: textBody };
         }
 
-        function showErrorDetails(title, status, body, fix) {
-            const box = document.getElementById('errorDetails');
-            box.innerHTML = `
-                <div class="error-details">
-                    <div class="err-title">⚠ ${title}</div>
-                    <div class="err-status">Код: ${status}</div>
-                    <div style="color: #888; font-size: 12px; margin-bottom: 8px;">${body}</div>
-                    <div class="err-fix">✓ ${fix}</div>
-                </div>
-            `;
+        // Загрузка файла с учётом размера >1 МБ (п. 1)
+        async function fetchFileContent(path) {
+            const { response: metaRes, json: meta } = await githubApiCall(
+                `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${encodePath(path)}?ref=${CMS_CONFIG.branch}`,
+                {
+                    headers: { 
+                        'Authorization': 'Bearer ' + currentToken,
+                        'Cache-Control': 'no-cache'
+                    },
+                    cache: 'no-store'
+                }
+            );
+
+            // Если content присутствует — файл маленький (<1MB)
+            if (meta && meta.content && meta.encoding === 'base64') {
+                return {
+                    content: decodeBase64Utf8(meta.content),
+                    sha: meta.sha,
+                    size: meta.size
+                };
+            }
+
+            // Большой файл — нужно забрать через blob/raw API (п. 1)
+            if (meta && meta.size > 1000000) {
+                const blobRes = await fetch(meta.git_url || meta.download_url, {
+                    headers: {
+                        'Authorization': 'Bearer ' + currentToken,
+                        'Accept': 'application/vnd.github.v3.raw'
+                    },
+                    cache: 'no-store'
+                });
+                if (!blobRes.ok) {
+                    throw new Error(`Не удалось скачать большой файл: ${blobRes.status}`);
+                }
+                const content = await blobRes.text();
+                return { content, sha: meta.sha, size: meta.size };
+            }
+
+            throw new Error('Не удалось прочитать файл: неизвестный формат ответа');
         }
 
+        // ============ ИНТЕРПРЕТАЦИЯ ОШИБОК ============
         function interpretError(status, body) {
             if (status === 401) {
                 return {
                     title: 'Токен недействителен или истёк',
-                    fix: 'Создайте новый Personal Access Token по кнопке ниже и вставьте его заново. Токены GitHub имеют срок действия.'
+                    fix: 'Создайте новый Personal Access Token по кнопке ниже.'
                 };
             }
             if (status === 403) {
-                if (body.includes('rate limit')) {
+                if (body && body.includes('rate limit')) {
                     return {
                         title: 'Превышен лимит запросов GitHub API',
-                        fix: 'Подождите 1 минуту и попробуйте снова. Или создайте токен с правами "repo".'
+                        fix: 'Подождите 1 минуту и попробуйте снова.'
                     };
                 }
-                if (body.includes('scope') || body.includes('permission')) {
+                if (body && (body.includes('scope') || body.includes('permission'))) {
                     return {
                         title: 'У токена нет нужных прав',
-                        fix: 'Создайте НОВЫЙ токен с правами "repo" (полный доступ к репозиториям). Старый токен удалить.'
+                        fix: 'Создайте НОВЫЙ токен с правами "repo". Старый удалите.'
                     };
                 }
                 return {
                     title: 'Доступ запрещён',
-                    fix: 'Проверьте, что токен принадлежит тому же аккаунту, что и репозиторий. Создайте новый токен.'
+                    fix: 'Проверьте, что токен принадлежит тому же аккаунту.'
                 };
             }
             if (status === 404) {
                 return {
                     title: 'Репозиторий или файл не найден',
-                    fix: `Проверьте в config.js: owner="${CMS_CONFIG.owner}", repo="${CMS_CONFIG.repo}", branch="${CMS_CONFIG.branch}". Убедитесь, что имя репозитория совпадает буква в букву.`
+                    fix: `Проверьте в config.js: owner="${CMS_CONFIG.owner}", repo="${CMS_CONFIG.repo}", branch="${CMS_CONFIG.branch}".`
+                };
+            }
+            if (status === 409) {
+                return {
+                    title: 'Конфликт версий (файл был изменён)',
+                    fix: 'Кто-то изменил файл в репозитории. Нажмите "Обновить" и примените правки заново.'
+                };
+            }
+            if (status === 422) {
+                return {
+                    title: 'Ошибка валидации',
+                    fix: 'Файл уже существует или данные некорректны. Попробуйте "Переподготовить".'
+                };
+            }
+            if (status === 429) {
+                return {
+                    title: 'Слишком много запросов',
+                    fix: 'Подождите минуту и попробуйте снова.'
                 };
             }
             return {
@@ -478,65 +568,33 @@
         async function checkTokenValidity() {
             const infoBox = document.getElementById('tokenInfo');
             infoBox.innerHTML = '<span style="color:#F40009;">Проверка токена...</span>';
-            
+            document.getElementById('errorDetails').innerHTML = '';
+
             try {
-                const res = await githubApiCall('https://api.github.com/user', {
-                    headers: { 'Authorization': 'token ' + currentToken }
+                const { json: user } = await githubApiCall('https://api.github.com/user', {
+                    headers: { 'Authorization': 'Bearer ' + currentToken },
+                    cache: 'no-store'
                 });
-                const user = await res.json();
-                
-                // Проверяем scope токена
-                const scopeHeader = res.headers.get('X-OAuth-Scopes') || '';
-                const hasRepoScope = scopeHeader.includes('repo');
-                
-                // Проверяем доступ к репозиторию
-                const repoRes = await githubApiCall(
+
+                const { json: repo } = await githubApiCall(
                     `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`,
-                    { headers: { 'Authorization': 'token ' + currentToken } }
+                    { headers: { 'Authorization': 'Bearer ' + currentToken }, cache: 'no-store' }
                 );
-                const repo = await repoRes.json();
-                
-                // Проверяем, есть ли index.html
+
                 let hasIndexHtml = false;
                 try {
                     await githubApiCall(
-                        `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/index.html?ref=${CMS_CONFIG.branch}`,
-                        { headers: { 'Authorization': 'token ' + currentToken } }
+                        `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${encodePath('index.html')}?ref=${CMS_CONFIG.branch}`,
+                        { headers: { 'Authorization': 'Bearer ' + currentToken }, cache: 'no-store' }
                     );
                     hasIndexHtml = true;
                 } catch (e) {}
-                
-                infoBox.innerHTML = `
-                    <div class="token-info">
-                        <span class="label">✓ Пользователь:</span>
-                        ${user.login}
-                    </div>
-                    <div class="token-info" style="margin-top:8px;">
-                        <span class="label">Права токена (scopes):</span>
-                        ${scopeHeader || 'нет данных'}
-                        ${hasRepoScope ? '<br><span style="color:#00cc66;">✓ есть repo</span>' : '<br><span style="color:#ff4444;">⚠ НЕТ repo — нужен новый токен!</span>'}
-                    </div>
-                    <div class="token-info" style="margin-top:8px;">
-                        <span class="label">✓ Репозиторий:</span>
-                        ${repo.full_name} (${repo.private ? 'приватный' : 'публичный'})
-                    </div>
-                    <div class="token-info" style="margin-top:8px;">
-                        <span class="label">${hasIndexHtml ? '✓' : '⚠'} index.html в ветке ${CMS_CONFIG.branch}:</span>
-                        ${hasIndexHtml ? 'найден' : 'НЕ НАЙДЕН'}
-                    </div>
-                `;
-                
-                document.getElementById('errorDetails').innerHTML = '';
-                showStatus('✓ Токен валиден. Можно готовить сайт.');
-                
-                if (!hasRepoScope) {
-                    showErrorDetails(
-                        'Токен без прав repo',
-                        'WARNING',
-                        `Текущие scopes: ${scopeHeader || 'пусто'}`,
-                        'Создайте новый токен с правами "repo" по кнопке ниже. Иначе при сохранении будет ошибка 403.'
-                    );
-                }
+
+                infoBox.innerHTML = '';
+                infoBox.appendChild(createInfoBlock('Пользователь:', user.login, '✓'));
+                infoBox.appendChild(createInfoBlock('Репозиторий:', `${repo.full_name} (${repo.private ? 'приватный' : 'публичный'})`, '✓'));
+                infoBox.appendChild(createInfoBlock('index.html в ветке ' + CMS_CONFIG.branch + ':', hasIndexHtml ? 'найден' : 'НЕ НАЙДЕН', hasIndexHtml ? '✓' : '⚠'));
+
                 if (!hasIndexHtml) {
                     showErrorDetails(
                         'Файл index.html не найден',
@@ -545,94 +603,159 @@
                         'Создайте файл index.html в корне репозитория или проверьте имя ветки в config.js.'
                     );
                 }
-                
+
+                showStatus('✓ Токен валиден.');
                 return true;
             } catch (e) {
                 const interpret = interpretError(e.status, e.body);
-                infoBox.innerHTML = `
-                    <div class="token-info">
-                        <span class="label">✗ Ошибка:</span>
-                        ${e.message}
-                    </div>
-                `;
+                infoBox.innerHTML = `<div class="token-info"><span class="label">✗ Ошибка:</span> ${escapeHtml(e.message)}</div>`;
                 showErrorDetails(interpret.title, e.status || 'unknown', e.body || '', interpret.fix);
                 return false;
             }
         }
 
-        // ============ АВТОРИЗАЦИЯ ============
-        if (currentToken) {
-            enterApp(currentToken);
+        function createInfoBlock(label, value, prefix) {
+            const div = document.createElement('div');
+            div.className = 'token-info';
+            div.style.marginTop = '8px';
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'label';
+            labelSpan.textContent = `${prefix} ${label}`;
+            div.appendChild(labelSpan);
+            div.appendChild(document.createTextNode(value));
+            return div;
         }
 
-        document.getElementById('loginBtn').addEventListener('click', async () => {
+        function showErrorDetails(title, status, body, fix) {
+            const box = document.getElementById('errorDetails');
+            box.innerHTML = '';
+            
+            const details = document.createElement('div');
+            details.className = 'error-details';
+            
+            const titleEl = document.createElement('div');
+            titleEl.className = 'err-title';
+            titleEl.textContent = '⚠ ' + title;
+            details.appendChild(titleEl);
+            
+            const statusEl = document.createElement('div');
+            statusEl.className = 'err-status';
+            statusEl.textContent = 'Код: ' + status;
+            details.appendChild(statusEl);
+            
+            const bodyEl = document.createElement('div');
+            bodyEl.style.cssText = 'color: #888; font-size: 12px; margin-bottom: 8px;';
+            bodyEl.textContent = body;
+            details.appendChild(bodyEl);
+            
+            const fixEl = document.createElement('div');
+            fixEl.className = 'err-fix';
+            fixEl.textContent = '✓ ' + fix;
+            details.appendChild(fixEl);
+            
+            box.appendChild(details);
+        }
+
+        // ============ АВТОРИЗАЦИЯ ============
+        if (currentToken) {
+            enterApp();
+        }
+
+        document.getElementById('loginBtn').addEventListener('click', handleLogin);
+        document.getElementById('tokenInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
+
+        async function handleLogin() {
             const t = document.getElementById('tokenInput').value.trim();
             if (!t) return;
             const btn = document.getElementById('loginBtn');
             btn.disabled = true;
             btn.textContent = 'Проверка...';
             try {
-                const res = await githubApiCall('https://api.github.com/user', {
-                    headers: { 'Authorization': 'token ' + t }
+                await githubApiCall('https://api.github.com/user', {
+                    headers: { 'Authorization': 'Bearer ' + t }
                 });
-                localStorage.setItem('gh_token', t);
+                sessionStorage.setItem('gh_token', t);
                 currentToken = t;
-                enterApp(t);
+                enterApp();
             } catch (e) {
                 const err = document.getElementById('loginError');
                 const interpret = interpretError(e.status, e.body);
-                err.innerHTML = `<strong>${interpret.title}</strong><br><small>${interpret.fix}</small>`;
+                err.innerHTML = `<strong>${escapeHtml(interpret.title)}</strong><br><small>${escapeHtml(interpret.fix)}</small>`;
                 err.classList.add('show');
                 btn.disabled = false;
                 btn.textContent = 'Войти';
             }
-        });
+        }
 
-        async function enterApp(token) {
+        function enterApp() {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('editorApp').classList.add('active');
-            await checkSiteStatus();
+            checkSiteStatus();
         }
 
         function logout() {
             if (Object.keys(pendingChanges).length > 0) {
                 if (!confirm('Есть несохранённые изменения. Выйти?')) return;
             }
-            localStorage.removeItem('gh_token');
+            sessionStorage.removeItem('gh_token');
             location.reload();
         }
 
+        // ============ ПРОВЕРКА СТАТУСА (п. 9) ============
         async function checkSiteStatus() {
             try {
-                const mapRes = await githubApiCall(
-                    `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/admin/editable-map.json?ref=${CMS_CONFIG.branch}`,
-                    { headers: { 'Authorization': 'token ' + currentToken } }
-                );
-                const mapData = await mapRes.json();
-                editableMap = JSON.parse(decodeBase64(mapData.content));
-                await loadCurrentHtml();
-                showEditor();
+                const { content: html } = await fetchFileContent('index.html');
+                
+                // Готовность проверяем по наличию data-edit в самом HTML
+                if (html.includes('data-edit="')) {
+                    currentHtml = html;
+                    const meta = await getFileMeta('index.html');
+                    currentHtmlSha = meta.sha;
+                    showEditor();
+                } else {
+                    showSetup();
+                    await checkTokenValidity();
+                }
             } catch (e) {
-                showSetup();
-                // Проверяем токен и показываем детали
-                await checkTokenValidity();
+                // Различаем 404 (нет файла) и другие ошибки
+                if (e.status === 404) {
+                    showSetup();
+                    showErrorDetails(
+                        'Файл index.html не найден',
+                        404,
+                        `В репозитории ${CMS_CONFIG.owner}/${CMS_CONFIG.repo} ветка ${CMS_CONFIG.branch}`,
+                        'Создайте файл index.html в корне репозитория.'
+                    );
+                } else if (e.status === 401 || e.status === 403) {
+                    showSetup();
+                    await checkTokenValidity();
+                } else {
+                    showSetup();
+                    const interpret = interpretError(e.status, e.body);
+                    showErrorDetails(interpret.title, e.status || 'unknown', e.body || e.message, interpret.fix);
+                }
             }
         }
 
-        async function loadCurrentHtml() {
-            const res = await githubApiCall(
-                `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/index.html?ref=${CMS_CONFIG.branch}`,
-                { headers: { 'Authorization': 'token ' + currentToken } }
+        async function getFileMeta(path) {
+            const { json } = await githubApiCall(
+                `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${encodePath(path)}?ref=${CMS_CONFIG.branch}`,
+                {
+                    headers: { 'Authorization': 'Bearer ' + currentToken },
+                    cache: 'no-store'
+                }
             );
-            const data = await res.json();
-            currentHtml = decodeBase64(data.content);
-            currentHtmlSha = data.sha;
+            return json;
         }
 
         function showSetup() {
             document.getElementById('setupScreen').classList.add('active');
             document.getElementById('iframeWrapper').style.display = 'none';
             document.getElementById('hintBanner').style.display = 'none';
+            document.getElementById('prepareBtn').disabled = false;
+            document.getElementById('prepareBtn').innerHTML = '<i class="fas fa-download"></i> Подготовить сайт';
         }
 
         function showEditor() {
@@ -643,8 +766,7 @@
         }
 
         function showLoader(statusText = 'Загрузка сайта...') {
-            const loader = document.getElementById('iframeLoader');
-            loader.classList.remove('hidden');
+            document.getElementById('iframeLoader').classList.remove('hidden');
             document.getElementById('loaderStatus').textContent = statusText;
         }
 
@@ -656,6 +778,7 @@
             const iframe = document.getElementById('siteIframe');
             showLoader('Загрузка index.html...');
             const siteUrl = `../index.html?edit=1&t=${Date.now()}`;
+            
             iframe.onload = () => {
                 document.getElementById('loaderStatus').textContent = 'Настройка редактора...';
                 setTimeout(() => {
@@ -663,25 +786,27 @@
                     hideLoader();
                 }, 300);
             };
-            iframe.onerror = () => {
-                document.getElementById('loaderStatus').textContent = 'Ошибка загрузки';
-            };
+            
             iframe.src = siteUrl;
         }
 
         function reloadIframe() {
+            pendingChanges = {};
+            markUnsaved();
             loadSiteInIframe();
             showStatus('Обновляем превью...');
         }
 
+        // ============ ПОДГОТОВКА САЙТА ============
         async function prepareSite() {
             const btn = document.getElementById('prepareBtn');
             const log = document.getElementById('progressLog');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Подготовка...';
             log.style.display = 'block';
+            log.innerHTML = '';
             document.getElementById('errorDetails').innerHTML = '';
-            
+
             const logItem = (msg, type = '') => {
                 const div = document.createElement('div');
                 div.className = 'log-item ' + type;
@@ -689,42 +814,32 @@
                 log.appendChild(div);
                 log.scrollTop = log.scrollHeight;
             };
-            
+
             try {
                 logItem('Загрузка index.html из репозитория...', 'working');
-                const htmlRes = await githubApiCall(
-                    `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/index.html?ref=${CMS_CONFIG.branch}`,
-                    { headers: { 'Authorization': 'token ' + currentToken } }
-                );
-                const htmlData = await htmlRes.json();
-                let html = decodeBase64(htmlData.content);
-                currentHtmlSha = htmlData.sha;
-                logItem('index.html загружен (' + htmlData.size + ' байт)', 'done');
-                
+                const { content: html, sha, size } = await fetchFileContent('index.html');
+                currentHtmlSha = sha;
+                logItem(`index.html загружен (${(size/1024).toFixed(1)} КБ)`, 'done');
+
                 logItem('Анализ контента и расстановка меток...', 'working');
                 const result = processHtml(html);
-                html = result.html;
-                editableMap = result.map;
-                const textCount = Object.values(editableMap).filter(m => m.type === 'text').length;
-                const imgCount = Object.values(editableMap).filter(m => m.type === 'image').length;
+                const newHtml = result.html;
+                const textCount = result.textCount;
+                const imgCount = result.imgCount;
                 logItem(`Найдено ${textCount} текстов и ${imgCount} картинок`, 'done');
-                
-                logItem('Сохранение карты редактирования...', 'working');
-                await saveFile('admin/editable-map.json', editableMap);
-                logItem('Карта сохранена', 'done');
-                
+
                 logItem('Сохранение подготовленного index.html...', 'working');
-                await saveFile('index.html', html, currentHtmlSha);
-                currentHtml = html;
+                await saveFile('index.html', newHtml, currentHtmlSha);
+                currentHtml = newHtml;
                 logItem('index.html обновлён в репозитории', 'done');
-                
+
                 logItem('Подготовка завершена!', 'done');
-                
+
                 setTimeout(() => {
-                    showStatus('✓ Сайт подготовлен! Открываем редактор...');
+                    showStatus('✓ Сайт подготовлен!');
                     setTimeout(() => showEditor(), 1000);
                 }, 500);
-                
+
             } catch (e) {
                 logItem('Ошибка: ' + e.message, 'error');
                 const interpret = interpretError(e.status, e.body);
@@ -734,13 +849,28 @@
             }
         }
 
+        // ============ ПАРСЕР HTML ============
         function processHtml(html) {
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
-            const map = {};
-            let textCounter = 1;
+
+            // Поиск максимального существующего номера (п. 14)
+            let maxExisting = 0;
+            doc.querySelectorAll('[data-edit^="auto_"]').forEach(el => {
+                const num = parseInt(el.getAttribute('data-edit').replace('auto_', ''), 10);
+                if (!isNaN(num) && num > maxExisting) maxExisting = num;
+            });
+            let textCounter = maxExisting + 1;
             let imgCounter = 0;
-            
+
+            // Узлы, которые нельзя трогать (п. 17)
+            const SKIP_TAGS = new Set([
+                'script', 'style', 'title', 'meta', 'noscript',
+                'input', 'textarea', 'select', 'option', 'button',
+                'svg', 'path', 'rect', 'circle', 'line', 'polygon', 'polyline', 'text',
+                'head', 'link'
+            ]);
+
             const walker = doc.createTreeWalker(
                 doc.body,
                 NodeFilter.SHOW_TEXT,
@@ -748,95 +878,148 @@
                     acceptNode: function(node) {
                         const parent = node.parentElement;
                         if (!parent) return NodeFilter.FILTER_REJECT;
+
                         const tag = parent.tagName.toLowerCase();
-                        if (['script', 'style', 'title', 'meta', 'input', 'textarea', 'button', 'noscript'].includes(tag)) {
-                            return NodeFilter.FILTER_REJECT;
-                        }
+                        if (SKIP_TAGS.has(tag)) return NodeFilter.FILTER_REJECT;
+
+                        // Пропускаем элементы внутри form (п. 17)
                         if (parent.closest('form')) return NodeFilter.FILTER_REJECT;
-                        const text = node.textContent.trim();
-                        if (!text) return NodeFilter.FILTER_REJECT;
+
+                        // Пропускаем уже помеченные
+                        if (parent.hasAttribute('data-edit')) return NodeFilter.FILTER_REJECT;
+
+                        const text = node.textContent;
+                        if (!text || !text.trim()) return NodeFilter.FILTER_REJECT;
                         if (/[а-яА-ЯёЁ]/.test(text)) return NodeFilter.FILTER_ACCEPT;
+
                         return NodeFilter.FILTER_REJECT;
                     }
                 }
             );
-            
-            let node;
+
             const nodesToProcess = [];
+            let node;
             while (node = walker.nextNode()) nodesToProcess.push(node);
-            
-            nodesToProcess.forEach(node => {
-                const parent = node.parentElement;
-                const text = node.textContent.trim();
+
+            let textCount = 0;
+            nodesToProcess.forEach(textNode => {
+                const parent = textNode.parentElement;
                 const key = `auto_${textCounter++}`;
-                if (parent.hasAttribute && parent.hasAttribute('data-edit')) return;
                 const span = doc.createElement('span');
                 span.setAttribute('data-edit', key);
-                span.innerHTML = node.textContent;
-                parent.replaceChild(span, node);
-                map[key] = { type: 'text', originalText: text.substring(0, 200), selector: getSelector(parent) };
+                // п. 6: textContent вместо innerHTML — защищает от XSS с &lt;b&gt;
+                span.textContent = textNode.textContent;
+                parent.replaceChild(span, textNode);
+                textCount++;
             });
-            
+
+            // Обработка картинок
             const images = doc.querySelectorAll('img');
+            let imgCount = 0;
             images.forEach(img => {
                 if (img.hasAttribute('data-img')) return;
                 const src = img.getAttribute('src') || '';
-                const fileName = src.split('/').pop() || `image-${imgCounter}.jpg`;
+                
+                // Пропускаем data: URI и пустые src
+                if (!src || src.startsWith('data:') || src.startsWith('blob:')) return;
+                
+                // Очищаем от query параметров и якорей
+                const cleanSrc = src.split('?')[0].split('#')[0];
+                const fileName = cleanSrc.split('/').pop() || `image-${imgCounter}.jpg`;
+                
+                // Ключ = исходный путь (для уникальности)
                 const key = `img_${imgCounter++}`;
-                img.setAttribute('data-img', fileName);
-                map[key] = { type: 'image', fileName: fileName, selector: getSelector(img) };
+                
+                // data-img хранит ПОЛНЫЙ ПУТЬ, чтобы сохранять по нему (Вариант А)
+                img.setAttribute('data-img', cleanSrc);
+                img.setAttribute('data-img-key', key);
+                imgCount++;
             });
-            
-            return { html: '<!DOCTYPE html>\n' + doc.documentElement.outerHTML, map: map };
+
+            return {
+                html: '<!DOCTYPE html>\n' + doc.documentElement.outerHTML,
+                textCount,
+                imgCount
+            };
         }
 
-        function getSelector(el) {
-            if (el.id) return `#${el.id}`;
-            if (el.className && typeof el.className === 'string') {
-                const classes = el.className.trim().split(/\s+/).slice(0, 2).join('.');
-                if (classes) return el.tagName.toLowerCase() + '.' + classes;
-            }
-            return el.tagName.toLowerCase();
-        }
-
+        // ============ СОХРАНЕНИЕ ФАЙЛА ============
         async function saveFile(path, data, sha = null) {
             const body = {
-                message: `Обновление ${path}`,
-                content: typeof data === 'string' ? encodeBase64(data) : encodeBase64(JSON.stringify(data, null, 2)),
+                message: `Обновление ${path} через админку`,
+                content: typeof data === 'string' ? encodeBase64Utf8(data) : encodeBase64Utf8(JSON.stringify(data, null, 2)),
                 branch: CMS_CONFIG.branch
             };
             if (sha) body.sha = sha;
-            const res = await githubApiCall(
-                `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${path}`,
+
+            const { json } = await githubApiCall(
+                `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${encodePath(path)}`,
                 {
                     method: 'PUT',
-                    headers: { 'Authorization': 'token ' + currentToken, 'Content-Type': 'application/json' },
+                    headers: {
+                        'Authorization': 'Bearer ' + currentToken,
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(body)
                 }
             );
-            return await res.json();
+            return json;
         }
 
+        // ============ СВЯЗЬ С IFRAME (п. 4, 20) ============
         function setupIframeCommunication() {
             const iframe = document.getElementById('siteIframe');
             try {
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                 if (!iframeDoc) return;
+
                 const handlerCode = `
                     (function() {
+                        // Подсветка при наведении
+                        let currentHover = null;
+                        document.addEventListener('mouseover', function(e) {
+                            const editEl = e.target.closest('[data-edit]');
+                            const imgEl = e.target.closest('img[data-img]');
+                            const target = editEl || imgEl;
+                            if (target && target !== currentHover) {
+                                if (currentHover) currentHover.style.outline = '';
+                                currentHover = target;
+                                currentHover.style.outline = '2px dashed #F40009';
+                                currentHover.style.outlineOffset = '3px';
+                                currentHover.style.cursor = 'pointer';
+                            }
+                        }, true);
+                        document.addEventListener('mouseout', function(e) {
+                            if (currentHover && !currentHover.contains(e.relatedTarget)) {
+                                currentHover.style.outline = '';
+                                currentHover.style.outlineOffset = '';
+                                currentHover.style.cursor = '';
+                                currentHover = null;
+                            }
+                        }, true);
+
                         document.addEventListener('click', function(e) {
                             const editEl = e.target.closest('[data-edit]');
                             if (editEl) {
-                                e.preventDefault(); e.stopPropagation();
-                                window.parent.postMessage({ type: 'EDIT_TEXT', key: editEl.getAttribute('data-edit'), value: editEl.textContent }, '*');
+                                e.preventDefault();
+                                e.stopPropagation();
+                                window.parent.postMessage({
+                                    type: 'EDIT_TEXT',
+                                    key: editEl.getAttribute('data-edit'),
+                                    value: editEl.textContent
+                                }, '*');
                                 return;
                             }
-                            const imgEl = e.target.closest('[data-img]') || e.target.closest('img[data-img]');
+                            const imgEl = e.target.closest('img[data-img]');
                             if (imgEl) {
-                                e.preventDefault(); e.stopPropagation();
-                                const targetImg = imgEl.tagName === 'IMG' ? imgEl : imgEl.querySelector('img');
-                                const key = (targetImg || imgEl).getAttribute('data-img');
-                                window.parent.postMessage({ type: 'EDIT_IMAGE', key: key, imgSrc: targetImg ? targetImg.src : '' }, '*');
+                                e.preventDefault();
+                                e.stopPropagation();
+                                window.parent.postMessage({
+                                    type: 'EDIT_IMAGE',
+                                    key: imgEl.getAttribute('data-img-key'),
+                                    imgPath: imgEl.getAttribute('data-img'),
+                                    imgSrc: imgEl.src
+                                }, '*');
                             }
                         }, true);
                     })();
@@ -849,37 +1032,97 @@
             }
         }
 
+        // ============ ПРИЁМ СООБЩЕНИЙ ИЗ IFRAME ============
         window.addEventListener('message', function(e) {
-            if (!e.data) return;
-            if (e.data.type === 'EDIT_TEXT') openTextEditor(e.data.key, e.data.value);
-            if (e.data.type === 'EDIT_IMAGE') openImageEditor(e.data.key, e.data.imgSrc);
+            const iframe = document.getElementById('siteIframe');
+            // Проверяем, что сообщение пришло из нашего iframe
+            if (e.source !== iframe.contentWindow) return;
+            if (!e.data || !e.data.type) return;
+
+            if (e.data.type === 'EDIT_TEXT') {
+                openTextEditor(e.data.key, e.data.value);
+            } else if (e.data.type === 'EDIT_IMAGE') {
+                openImageEditor(e.data.key, e.data.imgPath, e.data.imgSrc);
+            }
         });
 
+        // ============ РЕДАКТОРЫ ============
         function openTextEditor(key, value) {
             currentEditKey = key;
             currentEditType = 'text';
-            document.getElementById('editPanelTitle').innerHTML = `Редактирование текста <span class="key-badge">${key}</span>`;
-            document.getElementById('editPanelContent').innerHTML = `<textarea id="editTextArea">${escapeHtml(value)}</textarea>`;
+
+            const title = document.getElementById('editPanelTitle');
+            title.innerHTML = '';
+            const titleText = document.createTextNode('Редактирование текста ');
+            title.appendChild(titleText);
+            const badge = document.createElement('span');
+            badge.className = 'key-badge';
+            badge.textContent = key;
+            title.appendChild(badge);
+
+            const content = document.getElementById('editPanelContent');
+            content.innerHTML = '';
+            const textarea = document.createElement('textarea');
+            textarea.id = 'editTextArea';
+            textarea.value = value;
+            content.appendChild(textarea);
+
             document.getElementById('editPanel').classList.add('active');
-            setTimeout(() => document.getElementById('editTextArea').focus(), 100);
+            setTimeout(() => textarea.focus(), 100);
         }
 
-        function openImageEditor(key, currentSrc) {
+        function openImageEditor(key, imgPath, currentSrc) {
             currentEditKey = key;
             currentEditType = 'image';
-            document.getElementById('editPanelTitle').innerHTML = `Замена изображения <span class="key-badge">${key}</span>`;
-            document.getElementById('editPanelContent').innerHTML = `
-                <div style="margin-bottom: 16px;">
-                    <div style="color: #888; font-size: 13px; margin-bottom: 8px;">Текущее фото:</div>
-                    <img src="${currentSrc}" style="max-width: 100%; max-height: 200px; border-radius: 8px;">
-                </div>
-                <label class="file-upload">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                    <div class="upload-text"><strong>Выберите новое изображение</strong><br><small>JPG, PNG. Максимум 2 МБ.</small></div>
-                    <input type="file" id="imageFileInput" accept="image/*">
-                </label>
-                <div id="imagePreview" style="margin-top: 12px;"></div>
+
+            const title = document.getElementById('editPanelTitle');
+            title.innerHTML = '';
+            const titleText = document.createTextNode('Замена изображения ');
+            title.appendChild(titleText);
+            const badge = document.createElement('span');
+            badge.className = 'key-badge';
+            badge.textContent = key;
+            title.appendChild(badge);
+
+            const content = document.getElementById('editPanelContent');
+            content.innerHTML = '';
+
+            // Текущее фото
+            if (currentSrc) {
+                const preview = document.createElement('div');
+                preview.style.marginBottom = '16px';
+                
+                const label = document.createElement('div');
+                label.style.cssText = 'color: #888; font-size: 13px; margin-bottom: 8px;';
+                label.textContent = 'Текущее фото:';
+                preview.appendChild(label);
+                
+                const img = document.createElement('img');
+                img.src = currentSrc;
+                img.style.cssText = 'max-width: 100%; max-height: 200px; border-radius: 8px;';
+                preview.appendChild(img);
+                
+                content.appendChild(preview);
+            }
+
+            // Зона загрузки
+            const uploadLabel = document.createElement('label');
+            uploadLabel.className = 'file-upload';
+            uploadLabel.innerHTML = `
+                <i class="fas fa-cloud-upload-alt"></i>
+                <div class="upload-text"><strong>Выберите новое изображение</strong><br><small>JPG, PNG, WebP. Максимум 2 МБ.</small></div>
+                <input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp">
             `;
+            content.appendChild(uploadLabel);
+
+            const preview = document.createElement('div');
+            preview.id = 'imagePreview';
+            preview.style.marginTop = '12px';
+            content.appendChild(preview);
+
+            // Сохраняем путь картинки для Варианта А
+            content.dataset.imgPath = imgPath;
+
             document.getElementById('imageFileInput').addEventListener('change', handleImageSelect);
             document.getElementById('editPanel').classList.add('active');
         }
@@ -890,40 +1133,66 @@
         function handleImageSelect(e) {
             const file = e.target.files[0];
             if (!file) return;
-            if (file.size > 2 * 1024 * 1024) { showStatus('Файл слишком большой (максимум 2 МБ)', 'error'); return; }
+            if (file.size > 2 * 1024 * 1024) {
+                showStatus('Файл слишком большой (максимум 2 МБ)', 'error');
+                return;
+            }
             const reader = new FileReader();
             reader.onload = (ev) => {
                 pendingImageData = ev.target.result;
                 pendingImageName = file.name;
-                document.getElementById('imagePreview').innerHTML = `
-                    <div style="color: #00cc66; font-size: 13px;">✓ Файл: <strong>${file.name}</strong> (${(file.size/1024).toFixed(0)} КБ)</div>
-                `;
+                const preview = document.getElementById('imagePreview');
+                preview.innerHTML = '';
+                const info = document.createElement('div');
+                info.style.cssText = 'color: #00cc66; font-size: 13px;';
+                info.textContent = `✓ Файл: ${file.name} (${(file.size/1024).toFixed(0)} КБ)`;
+                preview.appendChild(info);
             };
             reader.readAsDataURL(file);
         }
 
         function applyEdit() {
+            const iframe = document.getElementById('siteIframe');
+            
             if (currentEditType === 'text') {
                 const newValue = document.getElementById('editTextArea').value;
                 pendingChanges[currentEditKey] = { type: 'text', value: newValue };
-                const iframe = document.getElementById('siteIframe');
+                
                 try {
                     const el = iframe.contentDocument.querySelector(`[data-edit="${currentEditKey}"]`);
-                    if (el) el.textContent = newValue;
-                } catch (e) {}
-                showStatus('✓ Изменения применены. Сохраните в GitHub.');
+                    if (el) {
+                        el.textContent = newValue;
+                        showStatus('✓ Изменения применены. Сохраните в GitHub.');
+                    } else {
+                        showStatus('⚠ Элемент не найден в превью, но изменения сохранятся', 'error');
+                    }
+                } catch (e) {
+                    showStatus('⚠ Не удалось обновить превью', 'error');
+                }
             } else if (currentEditType === 'image') {
-                if (!pendingImageData) { showStatus('Выберите файл', 'error'); return; }
-                pendingChanges[currentEditKey] = { type: 'image', data: pendingImageData, fileName: pendingImageName };
-                const iframe = document.getElementById('siteIframe');
+                if (!pendingImageData) {
+                    showStatus('Выберите файл', 'error');
+                    return;
+                }
+                const imgPath = document.getElementById('editPanelContent').dataset.imgPath;
+                pendingChanges[currentEditKey] = {
+                    type: 'image',
+                    data: pendingImageData,
+                    path: imgPath
+                };
+                
                 try {
-                    const img = iframe.contentDocument.querySelector(`img[data-img="${currentEditKey}"], [data-img="${currentEditKey}"] img`);
-                    if (img) img.src = pendingImageData;
+                    const img = iframe.contentDocument.querySelector(`img[data-img-key="${currentEditKey}"]`);
+                    if (img) {
+                        img.src = pendingImageData;
+                        showStatus('✓ Фото изменено. Сохраните в GitHub.');
+                    }
                 } catch (e) {}
+                
                 pendingImageData = null;
                 pendingImageName = null;
-                showStatus('✓ Фото изменено. Сохраните в GitHub.');
             }
+            
             markUnsaved();
             closeEditPanel();
         }
@@ -935,63 +1204,101 @@
             pendingImageData = null;
         }
 
-        function escapeHtml(str) {
-            if (!str) return '';
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        }
-
+        // ============ СОХРАНЕНИЕ ВСЕХ ИЗМЕНЕНИЙ ============
         async function saveAllChanges() {
             const changes = Object.keys(pendingChanges);
-            if (changes.length === 0) { showStatus('Нет изменений для сохранения'); return; }
+            if (changes.length === 0) {
+                showStatus('Нет изменений для сохранения');
+                return;
+            }
+            
             const btn = document.getElementById('saveBtn');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            
+            let textApplied = 0;
+            let textSkipped = 0;
+            let imageErrors = [];
+            
             try {
-                await loadCurrentHtml();
-                let html = currentHtml;
+                // Перезагружаем актуальный HTML
+                const { content: html, sha } = await fetchFileContent('index.html');
+                currentHtml = html;
+                currentHtmlSha = sha;
+                
                 const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
+                const doc = parser.parseFromString(currentHtml, 'text/html');
+                
+                // Применяем текстовые изменения
                 for (const [key, change] of Object.entries(pendingChanges)) {
                     if (change.type === 'text') {
                         const el = doc.querySelector(`[data-edit="${key}"]`);
-                        if (el) el.textContent = change.value;
+                        if (el) {
+                            el.textContent = change.value;
+                            textApplied++;
+                        } else {
+                            textSkipped++;
+                        }
                     }
                 }
+                
+                // Сохраняем HTML
                 const newHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
                 const result = await saveFile('index.html', newHtml, currentHtmlSha);
                 currentHtmlSha = result.content.sha;
                 currentHtml = newHtml;
                 
+                // Сохраняем картинки по исходному пути (Вариант А)
                 const imageChanges = Object.entries(pendingChanges).filter(([k, v]) => v.type === 'image');
                 for (const [key, change] of imageChanges) {
-                    const base64Data = change.data.split(',')[1];
-                    const fileName = `images/${change.fileName}`;
-                    let fileSha = null;
                     try {
-                        const checkRes = await githubApiCall(
-                            `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${fileName}?ref=${CMS_CONFIG.branch}`,
-                            { headers: { 'Authorization': 'token ' + currentToken } }
-                        );
-                        if (checkRes.ok) {
-                            const checkData = await checkRes.json();
-                            fileSha = checkData.sha;
+                        const base64Data = change.data.split(',')[1];
+                        const savePath = change.path; // путь из data-img (исходный)
+                        
+                        let fileSha = null;
+                        try {
+                            const meta = await getFileMeta(savePath);
+                            fileSha = meta.sha;
+                        } catch (e) {
+                            // Файла ещё нет — это нормально
                         }
-                    } catch (e) {}
-                    const body = { message: `Обновление изображения ${fileName}`, content: base64Data, branch: CMS_CONFIG.branch };
-                    if (fileSha) body.sha = fileSha;
-                    try {
+                        
+                        const body = {
+                            message: `Обновление изображения ${savePath}`,
+                            content: base64Data,
+                            branch: CMS_CONFIG.branch
+                        };
+                        if (fileSha) body.sha = fileSha;
+                        
                         await githubApiCall(
-                            `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${fileName}`,
-                            { method: 'PUT', headers: { 'Authorization': 'token ' + currentToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+                            `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/${encodePath(savePath)}`,
+                            {
+                                method: 'PUT',
+                                headers: {
+                                    'Authorization': 'Bearer ' + currentToken,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(body)
+                            }
                         );
                     } catch (e) {
-                        console.error('Ошибка сохранения фото:', e.message);
+                        imageErrors.push(`${change.path}: ${e.message}`);
                     }
                 }
+                
                 pendingChanges = {};
                 markUnsaved();
-                showStatus('✓ Сохранено! Сайт обновится через 1-2 минуты.');
-                setTimeout(() => reloadIframe(), 2000);
+                
+                // Итоговое сообщение
+                let msg = `✓ Сохранено! Текстов: ${textApplied}`;
+                if (textSkipped > 0) msg += ` (пропущено: ${textSkipped})`;
+                if (imageErrors.length > 0) msg += ` | ⚠ Ошибок фото: ${imageErrors.length}`;
+                msg += '. Сайт обновится через 1-2 минуты.';
+                
+                showStatus(msg, imageErrors.length > 0 ? 'error' : 'success');
+                
+                setTimeout(() => reloadIframe(), 2500);
+                
             } catch (e) {
                 const interpret = interpretError(e.status, e.body);
                 showStatus('✗ ' + interpret.title, 'error');
@@ -1001,33 +1308,25 @@
             }
         }
 
+        // ============ СБРОС ============
         async function resetSite() {
-            if (!confirm('Удалить карту редактирования и подготовить сайт заново?')) return;
-            try {
-                const mapRes = await githubApiCall(
-                    `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/admin/editable-map.json?ref=${CMS_CONFIG.branch}`,
-                    { headers: { 'Authorization': 'token ' + currentToken } }
-                );
-                if (mapRes.ok) {
-                    const data = await mapRes.json();
-                    await githubApiCall(
-                        `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}/contents/admin/editable-map.json`,
-                        {
-                            method: 'DELETE',
-                            headers: { 'Authorization': 'token ' + currentToken, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ message: 'Удаление карты', sha: data.sha, branch: CMS_CONFIG.branch })
-                        }
-                    );
-                }
-                showStatus('Карта удалена. Готовим заново...');
-                setTimeout(() => { showSetup(); document.getElementById('setupTitle').textContent = 'Готовим заново'; }, 1000);
-            } catch (e) {
-                showStatus('Ошибка: ' + e.message, 'error');
+            if (Object.keys(pendingChanges).length > 0) {
+                if (!confirm('Есть несохранённые изменения. Они будут потеряны. Продолжить?')) return;
             }
+            if (!confirm('Переподготовить сайт? Метки в HTML будут обновлены.')) return;
+            
+            pendingChanges = {};
+            markUnsaved();
+            showSetup();
+            document.getElementById('setupTitle').textContent = 'Переподготовка';
         }
 
+        // ============ ПРЕДУПРЕЖДЕНИЕ О ВЫХОДЕ ============
         window.addEventListener('beforeunload', (e) => {
-            if (Object.keys(pendingChanges).length > 0) { e.preventDefault(); e.returnValue = ''; }
+            if (Object.keys(pendingChanges).length > 0) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
         });
     </script>
 </body>
