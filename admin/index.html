@@ -158,7 +158,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
 .btn-group .btn { flex: 1; }
 .btn-small { width: auto; padding: 10px 16px; font-size: 13px; }
 
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; } }
 </style>
 </head>
 <body>
@@ -274,13 +274,10 @@ let siteBasePath = '/';
 let repoDeployId = null;
 let deployPollGen = 0;
 
-// ═══════════════════════════════════════════════════════
-// НОВОЕ: ЗАЩИТА ОТ ПАРАЛЛЕЛЬНЫХ ОПЕРАЦИЙ И КЭШ ФАЙЛОВ
-// ═══════════════════════════════════════════════════════
-let isProcessing = false;              // блокирует повторные вызовы navigateTo/prepareCurrentFile
-const fileCache = new Map();           // кэш загруженных файлов: path → { text, sha, timestamp }
-const FILE_CACHE_TTL = 30000;          // TTL кэша: 30 секунд
-let operationId = 0;                   // generation counter для отмены устаревших операций
+let isProcessing = false;
+const fileCache = new Map();
+const FILE_CACHE_TTL = 30000;
+let operationId = 0;
 
 const API = `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
 
@@ -291,12 +288,10 @@ function saveCurrentFile() {
     try { localStorage.setItem('cms_currentFile', currentFile); } catch {}
 }
 
-// Очистить кэш одного файла (после сохранения/подготовки)
 function invalidateFileCache(path) {
     fileCache.delete(path);
 }
 
-// Очистить весь кэш
 function clearAllCache() {
     fileCache.clear();
 }
@@ -351,6 +346,10 @@ function stampDeployId(html, id) {
     const tag = `<meta name="cms-deploy-id" content="${id}">`;
     if (/<meta\s+name=["']cms-deploy-id["']/i.test(html)) {
         return html.replace(/<meta\s+name=["']cms-deploy-id["'][^>]*>/i, tag);
+    }
+    // Вставляем после <meta charset>, если есть, иначе в начало <head>
+    if (/<meta\s+charset/i.test(html)) {
+        return html.replace(/(<meta\s+charset[^>]*>)/i, '$1\n' + tag);
     }
     return html.replace(/<head(\s[^>]*)?>|<head>/i, m => m + '\n' + tag);
 }
@@ -448,11 +447,7 @@ async function gh(url, opts = {}) {
     return res;
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: getFile теперь использует кэш
-// ═══════════════════════════════════════════════════════
 async function getFile(path, forceFresh = false) {
-    // Проверяем кэш
     if (!forceFresh && fileCache.has(path)) {
         const cached = fileCache.get(path);
         if (Date.now() - cached.timestamp < FILE_CACHE_TTL) {
@@ -467,14 +462,12 @@ async function getFile(path, forceFresh = false) {
     if (d.encoding === 'base64' && d.content) text = b64d(d.content);
     else text = await (await gh(url, { headers: { 'Accept': 'application/vnd.github.raw+json' } })).text();
 
-    // Сохраняем в кэш
     fileCache.set(path, { text, sha: d.sha, timestamp: Date.now() });
 
     return { text, sha: d.sha };
 }
 
 async function getSha(path) {
-    // Пробуем взять из кэша
     if (fileCache.has(path)) {
         const cached = fileCache.get(path);
         if (Date.now() - cached.timestamp < FILE_CACHE_TTL) {
@@ -492,7 +485,6 @@ async function putFile(path, b64, sha, message) {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     })).json();
 
-    // После сохранения — инвалидируем кэш этого файла
     invalidateFileCache(path);
 
     return result;
@@ -503,7 +495,7 @@ function interpretError(status, body = '') {
     if (status === 401) return { title: 'Токен недействителен или истёк', fix: 'Создайте новый токен и войдите заново.' };
     if (status === 403 || status === 429) {
         if (/rate limit/i.test(b)) return { title: 'Превышен лимит запросов GitHub API', fix: 'Подождите минуту и повторите.' };
-        if (/scope|permission/i.test(b)) return { title: 'У токена нет нужных прав', fix: 'Создайте НОВЫЙ токен с правами Contents: Read and write на этот репозиторий.' };
+        if (/scope|permission|not accessible/i.test(b)) return { title: 'У токена нет нужных прав', fix: 'Создайте НОВЫЙ токен с правами Contents: Read and write на этот репозиторий.' };
         return { title: 'Доступ запрещён', fix: 'Проверьте, что токен выдан на этот репозиторий и имеет право записи.' };
     }
     if (status === 404) return { title: 'Репозиторий или файл не найден', fix: `Проверьте имя файла и ветку "${CMS_CONFIG.branch}".` };
@@ -559,7 +551,7 @@ async function login() {
     token = t;
     try {
         await gh('https://api.github.com/user');
-        localStorage.setItem('gh_token', t);
+        try { localStorage.setItem('gh_token', t); } catch {}
         enterApp();
     } catch (e) {
         token = null;
@@ -576,33 +568,37 @@ $('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(
 async function enterApp() {
     $('loginScreen').style.display = 'none';
     $('editorApp').classList.add('active');
-    try { await getFile(currentFile); } catch (e) {
+    let f;
+    try { f = await getFile(currentFile); } catch (e) {
         if (e.status === 404 && currentFile !== 'index.html') {
             showStatus(`⚠ Файл "${currentFile}" не найден — переключаемся на index.html`, 'info');
             currentFile = 'index.html'; saveCurrentFile();
+            try { f = await getFile(currentFile); } catch (e2) {
+                showSetup();
+                const i = interpretError(e2.status, e2.body);
+                showErrorDetails(i.title, e2.status || 'unknown', e2.body || e2.message, i.fix);
+                return;
+            }
+        } else {
+            showSetup();
+            const i = interpretError(e.status, e.body);
+            showErrorDetails(i.title, e.status || 'unknown', e.body || e.message, i.fix);
+            return;
         }
     }
     updatePageIndicator();
-    try {
-        const f = await getFile(currentFile);
-        if (f.text.includes('data-edit="')) {
-            repoDeployId = readDeployId(f.text);
-            showEditor();
-        } else { showSetup(); await checkToken(); }
-    } catch (e) {
-        showSetup();
-        if (e.status === 404) showErrorDetails('Файл не найден', 404, `В репозитории ${CMS_CONFIG.owner}/${CMS_CONFIG.repo} ветка ${CMS_CONFIG.branch}`, 'Проверьте имя файла.');
-        else if (e.status === 401 || e.status === 403) await checkToken();
-        else { const i = interpretError(e.status, e.body); showErrorDetails(i.title, e.status || 'unknown', e.body || e.message, i.fix); }
-    }
+    if (f.text.includes('data-edit="')) {
+        repoDeployId = readDeployId(f.text);
+        showEditor();
+    } else { showSetup(); await checkToken(); }
 }
 
 if (token) enterApp();
 
 function logout() {
     if (Object.keys(pending).length && !confirm('Есть несохранённые изменения. Выйти?')) return;
-    localStorage.removeItem('gh_token');
-    localStorage.removeItem('cms_currentFile');
+    try { localStorage.removeItem('gh_token'); } catch {}
+    try { localStorage.removeItem('cms_currentFile'); } catch {}
     clearAllCache();
     location.reload();
 }
@@ -622,7 +618,19 @@ function showEditor() {
     loadSite();
 }
 
-async function loadSite() {
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНИЕ 1: Убираем <script> из HTML перед вставкой в iframe
+// Защита от кражи токена скриптами сайта (метрика, виджеты, чаты)
+// ═══════════════════════════════════════════════════════
+function stripScripts(html) {
+    return html.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+}
+
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНИЕ 6: loadSite теперь принимает skipVerify
+// При сохранении не запускаем проверку деплоя из onload
+// ═══════════════════════════════════════════════════════
+async function loadSite(skipVerify = false) {
     viewModeUrl = null;
     updatePageIndicator();
     const ifr = $('siteIframe');
@@ -635,18 +643,28 @@ async function loadSite() {
         status.textContent = 'Подготовка превью...';
         repoDeployId = readDeployId(f.text);
         let html = f.text;
+
+        // ИСПРАВЛЕНИЕ 7: base href относительно текущей страницы
+        const pageDir = currentFile.includes('/') ? currentFile.substring(0, currentFile.lastIndexOf('/') + 1) : '';
+        const baseHref = siteBaseUrl + pageDir;
+
         if (!/<base\s/i.test(html)) {
-            html = html.replace(/<head(\s[^>]*)?>|<head>/i, (match) => match + '\n<base href="' + esc(siteBaseUrl) + '">');
+            html = html.replace(/<head(\s[^>]*)?>|<head>/i, (match) => match + '\n<base href="' + esc(baseHref) + '">');
         }
-        ifr.srcdoc = html;
+
+        // ИСПРАВЛЕНИЕ 1: удаляем скрипты сайта
+        const safeHtml = stripScripts(html);
+
         ifr.onload = () => {
             hookIframe();
             loader.classList.add('hidden');
-            verifyDeploy(repoDeployId, true);
+            if (!skipVerify) verifyDeploy(repoDeployId, true);
         };
+        ifr.srcdoc = safeHtml;
     } catch (e) {
         status.textContent = 'Ошибка: ' + e.message;
         setTimeout(() => {
+            ifr.removeAttribute('srcdoc');
             ifr.src = `../${currentFile}?t=${Date.now()}`;
             ifr.onload = () => { hookIframe(); loader.classList.add('hidden'); };
         }, 1000);
@@ -656,6 +674,8 @@ async function loadSite() {
 function reloadPreview() {
     if (Object.keys(pending).length && !confirm('Несохранённые правки в превью пропадут. Обновить?')) return;
     invalidateFileCache(currentFile);
+    pending = {};
+    markUnsaved();
     loadSite();
     showStatus('Обновляем превью...', 'info');
 }
@@ -699,14 +719,38 @@ function normalizePagePath(href) {
 }
 
 // ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: prepareCurrentFile теперь принимает параметр forceReprepare
-// При forceReprepare=true очищает pending (чтобы старые ключи не ломали)
+// ИСПРАВЛЕНИЕ 7: резолвим путь картинки относительно страницы
+// Для blog/post.html с <img src="img/a.jpg"> → blog/img/a.jpg
 // ═══════════════════════════════════════════════════════
+function resolveImagePath(src, pagePath) {
+    if (!src) return null;
+    if (/^(data:|blob:|https?:|\/\/)/i.test(src)) return null;
+
+    try {
+        const pageUrl = new URL(pagePath || '', siteBaseUrl);
+        const imgUrl = new URL(src, pageUrl);
+        let relPath = decodeURIComponent(imgUrl.pathname);
+        const basePath = new URL(siteBaseUrl).pathname;
+        if (relPath.startsWith(basePath)) {
+            relPath = relPath.slice(basePath.length);
+        }
+        relPath = relPath.replace(/^\/+/, '');
+        if (!relPath || relPath.startsWith('../')) return null;
+        return relPath;
+    } catch {
+        let p = src.split(/[?#]/)[0];
+        try { p = decodeURIComponent(p); } catch {}
+        p = p.replace(/^(\.\/)+/, '').replace(/^\/+/, '');
+        if (!p || p.startsWith('../')) return null;
+        return p;
+    }
+}
+
 async function prepareCurrentFile(logContainer = null, forceReprepare = false) {
     const btn = $('prepareBtn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Подготовка...'; }
 
-    const fileBeingPrepared = currentFile;  // фиксируем файл на момент начала
+    const fileBeingPrepared = currentFile;
 
     const li = (msg, type = '') => {
         if (logContainer) {
@@ -720,7 +764,7 @@ async function prepareCurrentFile(logContainer = null, forceReprepare = false) {
 
     try {
         li(`[${fileBeingPrepared}] Загрузка из репозитория...`, 'working');
-        const f = await getFile(fileBeingPrepared, true);  // forceFresh = true
+        const f = await getFile(fileBeingPrepared, true);
         if (!f.text.trim()) throw new Error(fileBeingPrepared + ' пуст или не прочитан');
         li(`[${fileBeingPrepared}] Загружен (${(f.text.length / 1024).toFixed(1)} КБ)`, 'done');
 
@@ -730,8 +774,6 @@ async function prepareCurrentFile(logContainer = null, forceReprepare = false) {
             f.text = cleaned.html;
             li(`[${fileBeingPrepared}] Удалено: ${cleaned.removedEdit} text-меток и ${cleaned.removedImg} img-меток`, 'done');
 
-            // КРИТИЧЕСКИ ВАЖНО: если идёт принудительная переподготовка — сбрасываем pending
-            // иначе правки ссылаются на старые ключи которых больше нет
             if (forceReprepare && Object.keys(pending).length) {
                 pending = {};
                 markUnsaved();
@@ -740,10 +782,9 @@ async function prepareCurrentFile(logContainer = null, forceReprepare = false) {
         }
 
         li(`[${fileBeingPrepared}] Анализ контента и расстановка меток...`, 'working');
-        const r = processHtml(f.text);
+        const r = processHtml(f.text, fileBeingPrepared);
         li(`[${fileBeingPrepared}] Найдено ${r.textCount} текстов и ${r.imgCount} картинок`, 'done');
 
-        // ПРОВЕРКА: currentFile не изменился во время подготовки (race condition)
         if (currentFile !== fileBeingPrepared) {
             li(`⚠ Операция прервана: currentFile сменился на ${currentFile}`, 'error');
             showStatus('⚠ Операция прервана — начался переход на другую страницу', 'info');
@@ -756,7 +797,6 @@ async function prepareCurrentFile(logContainer = null, forceReprepare = false) {
         await putFile(fileBeingPrepared, b64e(stamped), f.sha, `Подготовка ${fileBeingPrepared} к редактированию`);
         repoDeployId = deployId;
 
-        // Обновляем кэш свежей версией
         fileCache.set(fileBeingPrepared, {
             text: stamped,
             sha: f.sha,
@@ -796,12 +836,6 @@ async function prepareSite() {
     }
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: navigateTo теперь защищён от race condition
-// - флаг isProcessing блокирует повторные вызовы
-// - operationId отменяет устаревшие операции
-// - проверка currentFile после каждой await
-// ═══════════════════════════════════════════════════════
 async function navigateTo(href) {
     if (isProcessing) {
         showStatus('Идёт другая операция, подождите...', 'info');
@@ -811,7 +845,6 @@ async function navigateTo(href) {
     const cleanPath = normalizePagePath(href);
     if (!cleanPath) return;
 
-    // Если это та же страница что открыта — просто перезагружаем превью
     if (cleanPath === currentFile && !viewModeUrl) {
         reloadPreview();
         return;
@@ -836,16 +869,13 @@ async function navigateTo(href) {
 
         const f = await getFile(cleanPath);
 
-        // Проверка: операция ещё актуальна?
         if (myOpId !== operationId) return;
 
         if (f.text.includes('data-edit="')) {
-            // ✅ Файл УЖЕ подготовлен — мгновенное открытие
             repoDeployId = readDeployId(f.text);
             showEditor();
             showStatus('✓ ' + cleanPath + ' открыта для редактирования', 'success');
         } else {
-            // Файл не подготовлен — готовим
             showSetup();
             $('setupTitle').textContent = 'Подготовка ' + cleanPath;
             $('errorDetails').innerHTML = '';
@@ -936,7 +966,11 @@ function hookIframe() {
             const linkEl = ev.target.closest && ev.target.closest('a[href]');
             if (linkEl) {
                 ev.preventDefault(); ev.stopPropagation();
-                window.open(linkEl.getAttribute('href'), '_blank', 'noopener');
+                let href = linkEl.getAttribute('href');
+                try { href = new URL(href, siteBaseUrl).href; } catch {}
+                if (/^(https?:|mailto:|tel:)/i.test(href)) {
+                    window.open(href, '_blank', 'noopener');
+                }
                 return;
             }
         }
@@ -960,28 +994,35 @@ function hookIframe() {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('editPanel').classList.contains('active')) closePanel(); });
-window.addEventListener('message', ev => { if (ev.data && ev.data.type === 'CLOSE_PANEL') closePanel(); });
+window.addEventListener('message', ev => {
+    if (ev.data && ev.data.type === 'CLOSE_PANEL' && ev.source === $('siteIframe').contentWindow) {
+        closePanel();
+    }
+});
 
 function syncHref(el, newValue) {
-    const parentLink = el.closest('a[href^="tel:"], a[href^="mailto:"], a[href*="t.me"], a[href*="wa.me"], a[href*="vk.com"], a[href*="instagram.com"]');
-    if (!parentLink) return;
-    if (parentLink.hasAttribute('data-cms-link')) return;
-    const href = parentLink.getAttribute('href') || '';
+    const parentLink = el.closest('a[href]');
+    if (!parentLink || parentLink.hasAttribute('data-cms-link')) return;
+
+    let href;
+    try { href = new URL(parentLink.getAttribute('href'), siteBaseUrl).href; }
+    catch { return; }
+
     if (href.startsWith('tel:')) {
         const clean = newValue.replace(/[^\d+]/g, '');
         if (clean.length >= 7) parentLink.setAttribute('href', 'tel:' + clean);
     } else if (href.startsWith('mailto:')) {
         if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newValue.trim())) parentLink.setAttribute('href', 'mailto:' + newValue.trim());
-    } else if (href.includes('t.me/') || href.includes('telegram.me/')) {
+    } else if (/^https?:\/\/([^\/]*\.)?(t\.me|telegram\.me)\//i.test(href)) {
         const u = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//, '');
         if (u && /^[a-zA-Z0-9_]{3,}$/.test(u)) parentLink.setAttribute('href', 'https://t.me/' + u);
-    } else if (href.includes('wa.me/')) {
+    } else if (/^https?:\/\/([^\/]*\.)?wa\.me\//i.test(href)) {
         const clean = newValue.replace(/[^\d]/g, '');
         if (clean.length >= 7) parentLink.setAttribute('href', 'https://wa.me/' + clean);
-    } else if (href.includes('vk.com/')) {
+    } else if (/^https?:\/\/([^\/]*\.)?vk\.com\//i.test(href)) {
         const u = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/vk\.com\//, '');
         if (u && /^[a-zA-Z0-9_.]+$/.test(u)) parentLink.setAttribute('href', 'https://vk.com/' + u);
-    } else if (href.includes('instagram.com/')) {
+    } else if (/^https?:\/\/([^\/]*\.)?instagram\.com\//i.test(href)) {
         const u = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '');
         if (u && /^[a-zA-Z0-9_.]+$/.test(u)) parentLink.setAttribute('href', 'https://instagram.com/' + u);
     }
@@ -990,12 +1031,12 @@ function syncHref(el, newValue) {
 function findImgTargets(doc, key, path) {
     if (!doc) return [];
     if (key && /^img_\d+$/.test(key)) {
-        const el = doc.querySelector(`[data-img-id="${key}"]`);
+        const el = doc.querySelector(`[data-img-id="${CSS.escape(key)}"]`);
         return el ? [el] : [];
     }
     const lookupPath = path || key;
     if (!lookupPath) return [];
-    return Array.from(doc.querySelectorAll(`[data-img="${lookupPath}"]`));
+    return Array.from(doc.querySelectorAll(`[data-img="${CSS.escape(lookupPath)}"]`));
 }
 
 function readTextLink(key) {
@@ -1104,7 +1145,7 @@ function applyLinkToImage(doc, target, url, linkTarget = '_blank') {
     url = url.trim();
     let link;
     if (target.tagName === 'A') link = target;
-    else if (target.closest && target.closest('a')) link = target.closest('a');
+    else if (target.closest && target.closest('a') && target.closest('a').hasAttribute('data-cms-link')) link = target.closest('a');
     else {
         link = doc.createElement('a');
         target.parentNode.insertBefore(link, target);
@@ -1117,103 +1158,145 @@ function applyLinkToImage(doc, target, url, linkTarget = '_blank') {
     else link.removeAttribute('rel');
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНИЕ 2: cleanHtmlMarks — умный unwrap
+// - <span data-edit> с единственным атрибутом → unwrap (как было)
+// - <h2 data-edit class="..."> → только снять атрибут, сохранить элемент
+// - Удаляем только наш <base href>, не трогая оригинальные <base>
+// - Пустые текстовые узлы удаляем осторожно (не трогаем <pre>)
+// ═══════════════════════════════════════════════════════
 function cleanHtmlMarks(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const beforeEdit = doc.querySelectorAll('[data-edit]').length;
     const beforeImg = doc.querySelectorAll('[data-img]').length;
-    let pass = 0;
-    while (doc.querySelector('[data-edit]') && pass < 10) {
-        doc.querySelectorAll('[data-edit]').forEach(el => {
+
+    // Умный unwrap для data-edit
+    doc.querySelectorAll('[data-edit]').forEach(el => {
+        const isWrapperSpan = el.tagName === 'SPAN' && el.attributes.length === 1 && el.getAttribute('data-edit');
+        if (isWrapperSpan) {
             const parent = el.parentNode;
             if (!parent) return;
             while (el.firstChild) parent.insertBefore(el.firstChild, el);
             parent.removeChild(el);
-        });
-        pass++;
-    }
+        } else {
+            el.removeAttribute('data-edit');
+        }
+    });
+
+    // data-img и data-img-id
     doc.querySelectorAll('[data-img]').forEach(el => {
         el.removeAttribute('data-img');
         el.removeAttribute('data-img-id');
     });
-    doc.querySelectorAll('base[href]').forEach(el => el.parentNode.removeChild(el));
+
+    // Удаляем только <base>, добавленный нами (проверяем по href = siteBaseUrl)
+    doc.querySelectorAll('base[href]').forEach(el => {
+        const href = el.getAttribute('href') || '';
+        if (href === siteBaseUrl || href.startsWith(siteBaseUrl)) {
+            el.parentNode.removeChild(el);
+        }
+    });
+
     doc.body.normalize();
+
+    // Удаляем пустые текстовые узлы, но НЕ внутри <pre>, <script>, <style>
+    const PRESERVE_TAGS = new Set(['pre', 'script', 'style', 'textarea']);
     const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
     const emptyNodes = [];
     let node;
-    while (node = walker.nextNode()) if (node.textContent.trim() === '') emptyNodes.push(node);
+    while (node = walker.nextNode()) {
+        if (node.textContent.trim() === '') {
+            const parentTag = node.parentElement ? node.parentElement.tagName.toLowerCase() : '';
+            if (!PRESERVE_TAGS.has(parentTag)) {
+                emptyNodes.push(node);
+            }
+        }
+    }
     emptyNodes.forEach(n => n.parentNode?.removeChild(n));
+
     return { html: '<!DOCTYPE html>\n' + doc.documentElement.outerHTML, removedEdit: beforeEdit, removedImg: beforeImg };
 }
 
-function prettifyHtml(html) {
-    const doctypeMatch = html.match(/^<!DOCTYPE[^>]*>\s*/i);
-    const doctype = doctypeMatch ? doctypeMatch[0].trim() : '';
-    let rest = doctypeMatch ? html.slice(doctypeMatch[0].length) : html;
-    const tokens = [];
-    let current = '';
-    let inTag = false;
-    for (let i = 0; i < rest.length; i++) {
-        const ch = rest[i];
-        if (ch === '<' && !inTag) {
-            if (current) tokens.push({ type: 'text', value: current });
-            current = '<'; inTag = true;
-        } else if (ch === '>' && inTag) {
-            current += '>';
-            tokens.push({ type: 'tag', value: current });
-            current = ''; inTag = false;
-        } else current += ch;
-    }
-    if (current) tokens.push({ type: 'text', value: current });
-    const BLOCK = new Set(['html','head','body','section','div','p','h1','h2','h3','h4','h5','h6','ul','ol','li','dl','dt','dd','header','footer','nav','main','article','aside','figure','figcaption','blockquote','table','thead','tbody','tfoot','tr','td','th','form','fieldset','legend','details','summary','dialog','iframe','pre']);
-    const VOID = new Set(['img','br','hr','input','meta','link','source','area','col','embed','wbr','track']);
-    const RAW = new Set(['script','style','textarea']);
-    const IND = '    ';
-    let result = '', indent = 0, inRawTag = null;
-    for (let i = 0; i < tokens.length; i++) {
-        const t = tokens[i];
-        if (inRawTag) {
-            result += t.value;
-            if (t.type === 'tag') {
-                const closeMatch = t.value.match(/^<\/([a-zA-Z0-9]+)/);
-                if (closeMatch && closeMatch[1].toLowerCase() === inRawTag) { inRawTag = null; result += '\n'; }
-            }
-            continue;
-        }
-        if (t.type === 'tag') {
-            const tagMatch = t.value.match(/^<\/?([a-zA-Z0-9]+)/);
-            if (!tagMatch) { result += t.value; continue; }
-            const tagName = tagMatch[1].toLowerCase();
-            const isClosing = t.value.startsWith('</');
-            const isSelfClosing = VOID.has(tagName) || t.value.trim().endsWith('/>');
-            if (RAW.has(tagName) && !isClosing) { inRawTag = tagName; result += '\n' + IND.repeat(indent) + t.value.trim(); continue; }
-            if (isSelfClosing) { result += '\n' + IND.repeat(indent) + t.value.trim(); continue; }
-            if (isClosing) { indent = Math.max(0, indent - 1); result += '\n' + IND.repeat(indent) + t.value.trim(); continue; }
-            result += '\n' + IND.repeat(indent) + t.value.trim();
-            if (BLOCK.has(tagName)) indent++;
-        } else {
-            const trimmed = t.value.trim();
-            if (!trimmed) continue;
-            if (result.endsWith('\n') || result === '') result += IND.repeat(indent) + trimmed;
-            else result += trimmed;
-        }
-    }
-    let formatted = result.trim().replace(/\n{3,}/g, '\n\n');
-    return (doctype ? doctype + '\n' : '') + formatted;
-}
-
-function processHtml(html) {
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНИЕ 3: processHtml — правильная обработка
+// - data-editable и extraSelectors обрабатываются ДО общей обёртки
+// - Пропуск элементов с вложенными data-edit
+// - SVG-элементы не трогаем (namespace check)
+// - Пути картинок резолвятся через resolveImagePath
+// ═══════════════════════════════════════════════════════
+function processHtml(html, pagePath) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     let textCounter = 0;
-    const SKIP_TAGS = new Set(['script', 'style', 'title', 'meta', 'noscript', 'input', 'textarea', 'select', 'option', 'button', 'svg', 'path', 'rect', 'circle', 'line', 'polygon', 'polyline', 'head', 'link', 'form']);
+    const SKIP_TAGS = new Set(['script', 'style', 'title', 'meta', 'noscript', 'input', 'textarea', 'select', 'option', 'button', 'head', 'link', 'form']);
+    const XHTML_NS = 'http://www.w3.org/1999/xhtml';
+
+    function hasDataEditDescendant(el) {
+        return el.querySelector('[data-edit]') !== null;
+    }
+
+    function wrapTextNode(textNode, key) {
+        const span = doc.createElement('span');
+        span.setAttribute('data-edit', key);
+        span.textContent = textNode.textContent;
+        textNode.parentElement.replaceChild(span, textNode);
+    }
+
+    // ШАГ 1: Обработка data-editable и extraSelectors ПЕРЕД общей обёрткой
+    doc.querySelectorAll('[data-editable]').forEach(el => {
+        if (el.hasAttribute('data-edit')) return;
+        if (el.namespaceURI !== XHTML_NS) return;
+        if (hasDataEditDescendant(el)) return;
+
+        const text = el.textContent.trim();
+        if (!text) return;
+        const key = `auto_${++textCounter}`;
+        if (el.children.length === 0) {
+            const span = doc.createElement('span');
+            span.setAttribute('data-edit', key);
+            span.textContent = text;
+            el.textContent = '';
+            el.appendChild(span);
+        } else {
+            el.setAttribute('data-edit', key);
+        }
+        el.removeAttribute('data-editable');
+    });
+
+    const extraSelectors = (CMS_CONFIG.extraEditableSelectors || []).join(', ');
+    if (extraSelectors) {
+        doc.querySelectorAll(extraSelectors).forEach(el => {
+            if (el.hasAttribute('data-edit') || el.closest('form')) return;
+            if (el.namespaceURI !== XHTML_NS) return;
+            if (hasDataEditDescendant(el)) return;
+
+            const text = el.textContent.trim();
+            if (!text) return;
+            const key = `auto_${++textCounter}`;
+            if (el.children.length === 0) {
+                const span = doc.createElement('span');
+                span.setAttribute('data-edit', key);
+                span.textContent = text;
+                el.textContent = '';
+                el.appendChild(span);
+            } else {
+                el.setAttribute('data-edit', key);
+            }
+        });
+    }
+
+    // ШАГ 2: Основная обёртка текстовых узлов
     const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const parent = node.parentElement;
             if (!parent) return NodeFilter.FILTER_REJECT;
+            if (parent.namespaceURI !== XHTML_NS) return NodeFilter.FILTER_REJECT;
             if (SKIP_TAGS.has(parent.tagName.toLowerCase())) return NodeFilter.FILTER_REJECT;
+            if (parent.closest('form')) return NodeFilter.FILTER_REJECT;
             if (parent.hasAttribute('data-edit')) return NodeFilter.FILTER_REJECT;
+            if (parent.closest('[data-edit]')) return NodeFilter.FILTER_REJECT;
             const text = node.textContent;
             if (!text || !text.trim()) return NodeFilter.FILTER_REJECT;
-            if (/[\wа-яА-ЯёЁ]/.test(text)) return NodeFilter.FILTER_ACCEPT;
+            if (/[\p{L}\p{N}]/u.test(text)) return NodeFilter.FILTER_ACCEPT;
             return NodeFilter.FILTER_REJECT;
         }
     });
@@ -1223,14 +1306,14 @@ function processHtml(html) {
     let textCount = 0;
     nodesToProcess.forEach(textNode => {
         const key = `auto_${++textCounter}`;
-        const span = doc.createElement('span');
-        span.setAttribute('data-edit', key);
-        span.textContent = textNode.textContent;
-        textNode.parentElement.replaceChild(span, textNode);
+        wrapTextNode(textNode, key);
         textCount++;
     });
+
+    // ШАГ 3: Ссылки tel: и mailto:
     doc.querySelectorAll('a[href^="tel:"], a[href^="mailto:"]').forEach(el => {
-        if (el.hasAttribute('data-edit') || el.closest('form') || el.querySelector('[data-edit]')) return;
+        if (el.hasAttribute('data-edit') || el.closest('form') || hasDataEditDescendant(el)) return;
+        if (el.namespaceURI !== XHTML_NS) return;
         const text = el.textContent.trim();
         if (!text) return;
         const key = `auto_${++textCounter}`;
@@ -1241,38 +1324,8 @@ function processHtml(html) {
         el.appendChild(span);
         textCount++;
     });
-    doc.querySelectorAll('[data-editable]').forEach(el => {
-        if (el.hasAttribute('data-edit')) return;
-        const text = el.textContent.trim();
-        if (!text) return;
-        const key = `auto_${++textCounter}`;
-        if (el.children.length === 0) {
-            const span = doc.createElement('span');
-            span.setAttribute('data-edit', key);
-            span.textContent = text;
-            el.textContent = '';
-            el.appendChild(span);
-        } else el.setAttribute('data-edit', key);
-        el.removeAttribute('data-editable');
-        textCount++;
-    });
-    const extraSelectors = (CMS_CONFIG.extraEditableSelectors || []).join(', ');
-    if (extraSelectors) {
-        doc.querySelectorAll(extraSelectors).forEach(el => {
-            if (el.hasAttribute('data-edit') || el.closest('form')) return;
-            const text = el.textContent.trim();
-            if (!text) return;
-            const key = `auto_${++textCounter}`;
-            if (el.children.length === 0) {
-                const span = doc.createElement('span');
-                span.setAttribute('data-edit', key);
-                span.textContent = text;
-                el.textContent = '';
-                el.appendChild(span);
-            } else el.setAttribute('data-edit', key);
-            textCount++;
-        });
-    }
+
+    // ШАГ 4: Картинки (с resolveImagePath)
     const CORE_IMAGE_WRAPPERS = [
         '.img-wrapper', '.gallery-item', '.team-photo',
         '.about-img-wrapper', '.hero-img-wrapper', '.product-image',
@@ -1283,31 +1336,32 @@ function processHtml(html) {
     let imgCount = 0, imgIdCounter = 0;
     doc.querySelectorAll('img').forEach(img => {
         if (img.hasAttribute('data-img')) return;
+        if (img.namespaceURI !== XHTML_NS) return;
         const src = img.getAttribute('src');
-        if (!src || /^(data:|blob:|https?:|\/\/)/i.test(src)) return;
-        let path = src.split(/[?#]/)[0];
-        try { path = decodeURIComponent(path); } catch {}
-        path = path.replace(/^(\.\/)+/, '').replace(/^\/+/, '');
-        if (!path || path.startsWith('../')) return;
+        if (!src || /^(data:|blob:)/i.test(src)) return;
+
+        const resolvedPath = resolveImagePath(src, pagePath);
+        if (!resolvedPath) return;
+
         let wrapper = wrapperSelector ? img.closest(wrapperSelector) : null;
         if (wrapper && wrapper.hasAttribute('data-img')) return;
+
         const imgId = 'img_' + (++imgIdCounter);
         if (wrapper) {
-            wrapper.setAttribute('data-img', path);
+            wrapper.setAttribute('data-img', resolvedPath);
             wrapper.setAttribute('data-img-id', imgId);
         } else {
-            img.setAttribute('data-img', path);
+            img.setAttribute('data-img', resolvedPath);
             img.setAttribute('data-img-id', imgId);
         }
         imgCount++;
     });
+
+    // ИСПРАВЛЕНИЕ 4: НЕ применяем prettifyHtml, сохраняем оригинальный HTML
     const rawHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
-    return { html: prettifyHtml(rawHtml), textCount, imgCount };
+    return { html: rawHtml, textCount, imgCount };
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: cleanMarks теперь с защитой от race condition
-// ═══════════════════════════════════════════════════════
 async function cleanMarks() {
     if (isProcessing) {
         showStatus('Идёт другая операция, подождите...', 'info');
@@ -1337,9 +1391,8 @@ async function cleanMarks() {
         }
         showStatus('Удаляю метки...', 'info');
         const result = cleanHtmlMarks(f.text);
-        const pretty = prettifyHtml(result.html);
         const deployId = newDeployId();
-        const stamped = stampDeployId(pretty, deployId);
+        const stamped = stampDeployId(result.html, deployId);
         showStatus('Сохраняю очищенный файл...', 'info');
         await putFile(fileBeingCleaned, b64e(stamped), f.sha, `Очистка меток редактирования в ${fileBeingCleaned}`);
         repoDeployId = deployId;
@@ -1425,7 +1478,8 @@ function openImage(path, src, imgId) {
     editKind = 'image';
     editKey = imgId || path;
     editImagePath = path;
-    pendingImg = null;
+    const prevPending = pending['i:' + editKey];
+    pendingImg = prevPending?.data || null;
     openPanel('Замена изображения', path);
     const imgLinkData = readImageLink(editKey, path);
     $('editPanelContent').innerHTML = `
@@ -1465,6 +1519,9 @@ function openImage(path, src, imgId) {
     else {
         const fb = document.querySelector('input[name="imgLinkTarget"][value="_blank"]');
         if (fb) fb.checked = true;
+    }
+    if (pendingImg) {
+        $('imagePreview').innerHTML = `<div style="color: #00cc66; font-size: 13px;"><i class="fas fa-check-circle"></i> Выбрано новое изображение (из предыдущей сессии)</div>`;
     }
     $('imageFileInput').addEventListener('change', e => {
         const file = e.target.files[0];
@@ -1510,25 +1567,32 @@ function applyEdit() {
         const imgLinkUrl = $('imgLink').value.trim();
         const imgTargetEl = document.querySelector('input[name="imgLinkTarget"]:checked');
         const imgLinkTarget = imgTargetEl ? imgTargetEl.value : '_blank';
-        if (!pendingImg && !imgLinkUrl) return showStatus('Выберите файл или укажите ссылку', 'error');
+
+        // ИСПРАВЛЕНИЕ 10: объединяем с предыдущим pending
+        const prev = pending['i:' + editKey];
+        const finalData = pendingImg || (prev?.data) || null;
+
+        if (!finalData && !imgLinkUrl && !(prev && prev.link)) {
+            return showStatus('Выберите файл или укажите ссылку', 'error');
+        }
         const path = editImagePath || editKey;
         pending['i:' + editKey] = {
-            type: 'image', data: pendingImg, path: path, key: editKey,
+            type: 'image', data: finalData, path: path, key: editKey,
             link: imgLinkUrl, linkTarget: imgLinkTarget
         };
         if (d) {
             const targets = findImgTargets(d, editKey, path);
             targets.forEach(target => {
-                if (pendingImg) {
+                if (finalData) {
                     const img = target.tagName === 'IMG' ? target : target.querySelector('img');
-                    if (img) { img.removeAttribute('srcset'); img.src = pendingImg; }
+                    if (img) { img.removeAttribute('srcset'); img.src = finalData; }
                 }
                 applyLinkToImage(d, target, imgLinkUrl, imgLinkTarget);
             });
         }
-        if (pendingImg && imgLinkUrl) showStatus('Фото и ссылка применены.');
+        if (finalData && imgLinkUrl) showStatus('Фото и ссылка применены.');
         else if (imgLinkUrl) showStatus('Ссылка на фото применена.');
-        else if (pendingImg) showStatus('Фото изменено.');
+        else if (finalData) showStatus('Фото изменено.');
         else showStatus('Ссылка с фото убрана.');
     }
     markUnsaved();
@@ -1540,6 +1604,11 @@ function closePanel() {
     editKind = editKey = editImagePath = pendingImg = null;
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНИЕ 5: saveAll использует keepWs для сохранения пробелов
+// ИСПРАВЛЕНИЕ 6: loadSite(true) — пропускаем verifyDeploy
+// ИСПРАВЛЕНИЕ 4: НЕ используем prettifyHtml при сохранении
+// ═══════════════════════════════════════════════════════
 async function saveAll() {
     if (isProcessing) {
         showStatus('Идёт другая операция, подождите...', 'info');
@@ -1568,7 +1637,8 @@ async function saveAll() {
                 const key = k.slice(2);
                 const el = doc.querySelector(`[data-edit="${CSS.escape(key)}"]`);
                 if (el) {
-                    el.textContent = pending[k].value;
+                    // ИСПРАВЛЕНИЕ 5: сохраняем пробелы через keepWs
+                    el.textContent = keepWs(el.textContent, pending[k].value);
                     applyLinkToText(doc, el, pending[k].link || '', pending[k].keepColor || false, pending[k].linkColor || 'inherit', pending[k].linkTarget || '_blank');
                     if (!pending[k].link) syncHref(el, pending[k].value);
                     done.push(k);
@@ -1583,13 +1653,13 @@ async function saveAll() {
                 } else failed.push(k);
             }
 
+            // ИСПРАВЛЕНИЕ 4: сохраняем оригинальный HTML без prettify
             const rawHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
             const deployId = newDeployId();
-            const stamped = stampDeployId(prettifyHtml(rawHtml), deployId);
+            const stamped = stampDeployId(rawHtml, deployId);
             await putFile(fileBeingSaved, b64e(stamped), f.sha, `Редактирование текстов и ссылок в ${fileBeingSaved}`);
             repoDeployId = deployId;
 
-            // Обновляем кэш свежей версией
             fileCache.set(fileBeingSaved, {
                 text: stamped,
                 sha: f.sha,
@@ -1613,7 +1683,8 @@ async function saveAll() {
         else {
             showStatus('Сохранено! Ждём деплой GitHub Pages...', 'success');
             setDeployBadge('pending', '<i class="fas fa-spinner fa-spin"></i> Деплой...');
-            setTimeout(() => { loadSite(); verifyDeploy(repoDeployId, false); }, 500);
+            // ИСПРАВЛЕНИЕ 6: пропускаем verifyDeploy в loadSite, запускаем отдельно
+            setTimeout(() => { loadSite(true); verifyDeploy(repoDeployId, false); }, 500);
         }
     } catch (e) {
         const i = interpretError(e.status, e.body);
@@ -1625,9 +1696,6 @@ async function saveAll() {
     }
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: resetSite теперь очищает pending перед переподготовкой
-// ═══════════════════════════════════════════════════════
 async function resetSite() {
     if (isProcessing) {
         showStatus('Идёт другая операция, подождите...', 'info');
