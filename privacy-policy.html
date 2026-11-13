@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Политика обработки персональных данных — Медика Плюс</title>
+<meta name="description" content="Политика обработки персональных данных клиники Медика Плюс. Информация о сборе, хранении и защите ваших данных в соответствии с ФЗ-152.">
+
+<link rel="icon" type="image/png" href="favicon.png">
+<meta name="theme-color" content="#0891B2">
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --primary: #0891B2;
+  --primary-dark: #0E7490;
+  --primary-light: #06B6D4;
+  --accent: #14B8A6;
+  --bg: #F0F9FF;
+  --bg-soft: #ECFEFF;
+  --white: #FFFFFF;
+  --text: #0F172A;
+  --text-muted: #475569;
+  --text-light: #64748B;
+  --border: #E0F2FE;
+  --shadow: 0 4px 16px rgba(8, 145, 178, 0.08);
+}
+
+html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.7;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== ШАПКА ===== */
+.header {
+  position: sticky;
+  top: 0;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  z-index: 50;
+  box-shadow: var(--shadow);
+}
+.header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text);
+}
+.logo-icon {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.logo-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary-dark);
+}
+.logo-sub {
+  font-size: 12px;
+  color: var(--text-light);
+  letter-spacing: 0.3px;
+}
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--bg-soft);
+  color: var(--primary-dark);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.back-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* ===== HERO ===== */
+.hero {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  padding: 60px 0 50px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%; right: -10%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1), transparent 70%);
+  border-radius: 50%;
+}
+.hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+.hero-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  padding: 6px 16px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.hero h1 {
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 16px;
+  max-width: 800px;
+  text-wrap: balance;
+}
+.hero-sub {
+  font-size: 18px;
+  opacity: 0.9;
+  max-width: 720px;
+  line-height: 1.6;
+}
+.hero-meta {
+  display: flex;
+  gap: 24px;
+  margin-top: 30px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  opacity: 0.9;
+}
+.hero-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===== ОСНОВНОЙ МАКЕТ ===== */
+.layout {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+/* ===== ОГЛАВЛЕНИЕ ===== */
+.toc {
+  position: sticky;
+  top: 90px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+}
+.toc h3 {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-light);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--border);
+}
+.toc ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.toc a {
+  display: block;
+  padding: 8px 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover {
+  background: var(--bg-soft);
+  color: var(--primary-dark);
+  border-left-color: var(--primary);
+}
+.toc a.active {
+  background: var(--bg-soft);
+  color: var(--primary-dark);
+  font-weight: 600;
+  border-left-color: var(--primary);
+}
+
+/* ===== КОНТЕНТ ===== */
+.content {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 48px;
+  box-shadow: var(--shadow);
+}
+
+.intro {
+  background: linear-gradient(135deg, var(--bg-soft) 0%, var(--bg) 100%);
+  border-left: 4px solid var(--primary);
+  padding: 20px 24px;
+  border-radius: 8px;
+  margin-bottom: 36px;
+  font-size: 15px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.intro strong { color: var(--text); }
+
+.section {
+  margin-bottom: 40px;
+  padding-top: 8px;
+}
+.section:last-child { margin-bottom: 0; }
+
+.section-num {
+  display: inline-block;
+  background: var(--primary);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 32px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin-bottom: 16px;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+}
+h2 .section-num { flex-shrink: 0; }
+
+h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 20px 0 10px;
+}
+
+p {
+  margin-bottom: 14px;
+  color: var(--text-muted);
+  font-size: 15.5px;
+}
+
+ul, ol {
+  margin: 12px 0 18px 20px;
+  color: var(--text-muted);
+}
+li {
+  margin-bottom: 8px;
+  padding-left: 4px;
+  font-size: 15px;
+}
+li::marker {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.highlight {
+  background: var(--bg-soft);
+  padding: 16px 20px;
+  border-radius: 10px;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+}
+.highlight strong { color: var(--primary-dark); }
+
+.contact-box {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  padding: 28px;
+  border-radius: 14px;
+  margin-top: 32px;
+}
+.contact-box h3 {
+  color: white;
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+.contact-box p {
+  color: rgba(255,255,255,0.9);
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+.contact-box a {
+  color: white;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 16px;
+}
+.contact-grid div {
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.contact-grid .label {
+  font-size: 12px;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+/* ===== ФУТЕР ===== */
+.footer {
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  padding: 24px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-light);
+  margin-top: 40px;
+}
+.footer a { color: var(--primary); text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+
+/* ===== АДАПТИВ ===== */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 24px; padding: 24px 16px; }
+  .toc { position: static; max-height: none; }
+  .toc ul { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
+  .hero h1 { font-size: 30px; }
+  .hero-sub { font-size: 16px; }
+  .content { padding: 28px 22px; }
+  h2 { font-size: 20px; }
+  .contact-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .header-inner { padding: 12px 16px; }
+  .logo-name { font-size: 16px; }
+  .logo-sub { font-size: 11px; }
+  .logo-icon { width: 38px; height: 38px; font-size: 20px; }
+  .back-btn { padding: 8px 12px; font-size: 13px; }
+  .hero { padding: 40px 0 32px; }
+  .hero h1 { font-size: 24px; }
+  .hero-sub { font-size: 15px; }
+  .hero-meta { font-size: 13px; gap: 14px; }
+  .toc ul { grid-template-columns: 1fr; }
+  .content { padding: 22px 18px; }
+  h2 { font-size: 18px; }
+  p, li { font-size: 14.5px; }
+  .section-num { width: 28px; height: 28px; line-height: 28px; font-size: 13px; }
+}
+
+/* ===== ПЕЧАТЬ ===== */
+@media print {
+  .header, .toc, .back-btn, .footer { display: none; }
+  .hero { background: white; color: black; padding: 20px 0; }
+  .hero::before { display: none; }
+  .hero h1 { color: var(--primary-dark); font-size: 24px; }
+  .hero-sub, .hero-meta { color: #333; opacity: 1; }
+  .content { box-shadow: none; border: none; padding: 0; }
+  .layout { display: block; max-width: 100%; }
+  body { background: white; color: black; }
+  .contact-box { background: #f5f5f5; color: black; }
+  .contact-box p { color: #333; }
+  .contact-box a { color: var(--primary-dark); }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== ШАПКА ===== -->
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-icon">🏥</div>
+      <div class="logo-text">
+        <span class="logo-name">Медика Плюс</span>
+        <span class="logo-sub">Многопрофильная клиника</span>
+      </div>
+    </a>
+    <a href="index.html" class="back-btn">← Вернуться на сайт</a>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-inner">
+    <span class="hero-badge">🔒 Юридический документ</span>
+    <h1>Политика обработки персональных данных</h1>
+    <p class="hero-sub">
+      Настоящая Политика разработана в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных».
+      Мы относимся к вашей приватности серьёзно и обеспечиваем защиту ваших данных на каждом этапе взаимодействия с клиникой.
+    </p>
+    <div class="hero-meta">
+      <span>📅 Обновлено: 14.11.2026</span>
+      <span>✓ Соответствует ФЗ-152</span>
+      <span>🏥 ООО «Медика Плюс»</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ОСНОВНОЙ МАКЕТ ===== -->
+<div class="layout">
+
+  <!-- ОГЛАВЛЕНИЕ -->
+  <aside class="toc">
+    <h3>📑 Содержание</h3>
+    <ul>
+      <li><a href="#general">1. Общие положения</a></li>
+      <li><a href="#data">2. Какие данные собираем</a></li>
+      <li><a href="#purposes">3. Цели обработки</a></li>
+      <li><a href="#legal">4. Правовые основания</a></li>
+      <li><a href="#methods">5. Способы обработки</a></li>
+      <li><a href="#protection">6. Защита данных</a></li>
+      <li><a href="#rights">7. Ваши права</a></li>
+      <li><a href="#cookies">8. Cookies и метрики</a></li>
+      <li><a href="#third">9. Третьи лица</a></li>
+      <li><a href="#changes">10. Изменения политики</a></li>
+      <li><a href="#contacts">11. Контакты</a></li>
+    </ul>
+  </aside>
+
+  <!-- КОНТЕНТ -->
+  <main class="content">
+
+    <div class="intro">
+      <strong>Кратко:</strong> клиника «Медика Плюс» собирает только те данные, которые вы сами предоставляете при записи на приём или обращении к нам. Мы не передаём их третьим лицам, кроме случаев, предусмотренных законом. Все данные хранятся на защищённых серверах в России.
+    </div>
+
+    <!-- 1. ОБЩИЕ ПОЛОЖЕНИЯ -->
+    <section class="section" id="general">
+      <h2><span class="section-num">1</span> Общие положения</h2>
+      <p>
+        Настоящая Политика определяет порядок обработки персональных данных и меры по обеспечению их безопасности,
+        предпринимаемые <strong>ООО «Медика Плюс»</strong> (далее — Оператор, клиника, мы).
+      </p>
+      <p>
+        Политика действует в отношении всей информации, которую Оператор может получить о пользователях
+        во время посещения сайта <strong>medicaplus.ru</strong>, а также при личном обращении в клинику
+        и взаимодействии по телефону, электронной почте и мессенджерам.
+      </p>
+      <p>
+        Используя сайт или оставляя заявку, вы подтверждаете своё согласие с условиями данной Политики.
+        Если вы не согласны с каким-либо пунктом — пожалуйста, не пользуйтесь формами обратной связи.
+      </p>
+    </section>
+
+    <!-- 2. КАКИЕ ДАННЫЕ СОБИРАЕМ -->
+    <section class="section" id="data">
+      <h2><span class="section-num">2</span> Какие данные мы собираем</h2>
+      <h3>2.1. Данные, которые вы предоставляете сами:</h3>
+      <ul>
+        <li><strong>Фамилия, имя, отчество</strong></li>
+        <li><strong>Контактный телефон</strong></li>
+        <li><strong>Email</strong></li>
+        <li><strong>Дата рождения</strong> (при записи на приём)</li>
+        <li><strong>Выбранная услуга</strong> и желаемое время визита</li>
+        <li><strong>Комментарий</strong> в форме заявки</li>
+      </ul>
+
+      <h3>2.2. Данные, собираемые автоматически:</h3>
+      <ul>
+        <li>IP-адрес и информация о браузере</li>
+        <li>Дата и время посещения сайта</li>
+        <li>Просмотренные страницы (через Яндекс.Метрику)</li>
+        <li>Технические данные устройства (тип, ОС, разрешение экрана)</li>
+      </ul>
+
+      <div class="highlight">
+        <strong>Важно:</strong> мы не собираем данные банковских карт, биометрические или специальные категории
+        персональных данных через сайт. Медицинская информация собирается только при личном визите
+        и хранится отдельно в медицинской карте с усиленной защитой.
+      </div>
+    </section>
+
+    <!-- 3. ЦЕЛИ ОБРАБОТКИ -->
+    <section class="section" id="purposes">
+      <h2><span class="section-num">3</span> Цели обработки данных</h2>
+      <p>Мы обрабатываем ваши данные исключительно для следующих целей:</p>
+      <ul>
+        <li><strong>Запись на приём</strong> — формирование расписания и уведомление о визите</li>
+        <li><strong>Обратная связь</strong> — ответы на вопросы, консультации</li>
+        <li><strong>Напоминания</strong> — SMS и email о предстоящем визите (с вашего согласия)</li>
+        <li><strong>Оказание медицинских услуг</strong> — ведение медицинской документации</li>
+        <li><strong>Аналитика сайта</strong> — улучшение работы сайта и пользовательского опыта</li>
+        <li><strong>Исполнение договора</strong> — оформление документов, счетов, чеков</li>
+      </ul>
+      <p>
+        Мы <strong>не используем</strong> ваши данные для навязчивой рекламы. Информационные рассылки о
+        новых услугах и акциях отправляются только при вашем явном согласии.
+      </p>
+    </section>
+
+    <!-- 4. ПРАВОВЫЕ ОСНОВАНИЯ -->
+    <section class="section" id="legal">
+      <h2><span class="section-num">4</span> Правовые основания обработки</h2>
+      <p>Обработка персональных данных осуществляется на следующих основаниях:</p>
+      <ul>
+        <li>Ваше <strong>согласие</strong> на обработку (ст. 6 ч. 1 п. 1 ФЗ-152)</li>
+        <li>Заключение и <strong>исполнение договора</strong> оказания медицинских услуг (ст. 6 ч. 1 п. 5)</li>
+        <li><strong>Законные интересы</strong> Оператора — защита от злоупотреблений, улучшение сервиса</li>
+        <li>Исполнение требований <strong>законодательства РФ</strong> (ФЗ-323 «Об основах охраны здоровья граждан», приказы Минздрава)</li>
+      </ul>
+    </section>
+
+    <!-- 5. СПОСОБЫ ОБРАБОТКИ -->
+    <section class="section" id="methods">
+      <h2><span class="section-num">5</span> Способы обработки данных</h2>
+      <p>Оператор осуществляет следующие действия с персональными данными:</p>
+      <ul>
+        <li>сбор и запись</li>
+        <li>систематизация и хранение</li>
+        <li>уточнение (обновление, изменение)</li>
+        <li>извлечение и использование</li>
+        <li>передача (предоставление, доступ) — только в случаях, предусмотренных настоящей Политикой</li>
+        <li>блокирование и удаление</li>
+        <li>уничтожение по истечении срока хранения или по запросу субъекта</li>
+      </ul>
+      <p>
+        Обработка ведётся как с использованием средств автоматизации (CRM-система, сайт),
+        так и без них (бумажные журналы, медицинские карты).
+      </p>
+
+      <div class="highlight">
+        <strong>Сроки хранения:</strong>
+        <ul style="margin-top: 8px;">
+          <li>Данные форм на сайте — <strong>3 года</strong> с момента обращения</li>
+          <li>Медицинская документация — <strong>25 лет</strong> (по приказу Минздрава)</li>
+          <li>Финансовые документы — <strong>5 лет</strong></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 6. ЗАЩИТА ДАННЫХ -->
+    <section class="section" id="protection">
+      <h2><span class="section-num">6</span> Защита ваших данных</h2>
+      <p>Мы применяем комплекс мер для защиты информации от несанкционированного доступа:</p>
+      <ul>
+        <li><strong>SSL-шифрование</strong> (замочек в браузере) — защита передаваемых данных</li>
+        <li><strong>Хранение на серверах в РФ</strong> — согласно требованию ФЗ-152</li>
+        <li><strong>Разграничение доступа</strong> сотрудников к данным (только для рабочих задач)</li>
+        <li><strong>Регулярное резервное копирование</strong> баз данных</li>
+        <li><strong>Антивирусная защита</strong> и межсетевое экранирование</li>
+        <li><strong>Физическая защита</strong> помещений с бумажными носителями (охрана, видеонаблюдение)</li>
+        <li><strong>Обучение персонала</strong> правилам работы с персональными данными</li>
+      </ul>
+    </section>
+
+    <!-- 7. ВАШИ ПРАВА -->
+    <section class="section" id="rights">
+      <h2><span class="section-num">7</span> Ваши права</h2>
+      <p>В соответствии с ФЗ-152 вы имеете право:</p>
+      <ul>
+        <li><strong>Получить информацию</strong> о том, какие ваши данные обрабатываются</li>
+        <li><strong>Требовать уточнения</strong>, блокирования или уничтожения данных при их неполноте, неточности или устаревании</li>
+        <li><strong>Отозвать согласие</strong> на обработку персональных данных в любой момент</li>
+        <li><strong>Требовать прекращения обработки</strong> в маркетинговых целях</li>
+        <li><strong>Обжаловать действия</strong> Оператора в Роскомнадзор или в суд</li>
+      </ul>
+
+      <div class="highlight">
+        <strong>Как воспользоваться правами:</strong> напишите нам на email <a href="mailto:privacy@medicaplus.ru" style="color: var(--primary); font-weight: 700;">privacy@medicaplus.ru</a>
+        или отправьте письменный запрос на почтовый адрес клиники. Мы ответим в течение <strong>30 дней</strong>.
+      </div>
+    </section>
+
+    <!-- 8. COOKIES -->
+    <section class="section" id="cookies">
+      <h2><span class="section-num">8</span> Cookies и системы аналитики</h2>
+      <p>
+        Сайт использует файлы cookie для корректной работы и улучшения пользовательского опыта.
+        Cookie — это небольшие текстовые файлы, которые сохраняются в вашем браузере.
+      </p>
+      <h3>Какие cookie мы используем:</h3>
+      <ul>
+        <li><strong>Технические</strong> — для работы форм и запоминания настроек</li>
+        <li><strong>Аналитические</strong> — через Яндекс.Метрику (анонимная статистика посещений)</li>
+      </ul>
+      <p>
+        Вы можете отключить cookie в настройках браузера — это не повлияет на работу основных
+        функций сайта, но может ограничить персонализацию.
+      </p>
+      <p>
+        Мы <strong>не передаём данные Яндекс.Метрики</strong> третьим лицам в коммерческих целях.
+        Аналитика используется только для внутреннего улучшения сайта.
+      </p>
+    </section>
+
+    <!-- 9. ТРЕТЬИ ЛИЦА -->
+    <section class="section" id="third">
+      <h2><span class="section-num">9</span> Передача данных третьим лицам</h2>
+      <p>Мы не передаём ваши данные третьим лицам, за исключением случаев:</p>
+      <ul>
+        <li><strong>По вашему прямому согласию</strong> (например, отправка результатов в другую клинику)</li>
+        <li><strong>По требованию закона</strong> — по запросам Росздравнадзора, правоохранительных органов, суда</li>
+        <li><strong>Для исполнения договора</strong> — передача данных в страховую компанию при работе по ДМС</li>
+        <li><strong>Техническим подрядчикам</strong> — хостинг-провайдеру, CRM-системе (с обязательством конфиденциальности)</li>
+      </ul>
+      <p>
+        Во всех случаях передачи мы гарантируем, что получатель данных обеспечивает
+        надлежащий уровень защиты в соответствии с ФЗ-152.
+      </p>
+    </section>
+
+    <!-- 10. ИЗМЕНЕНИЯ -->
+    <section class="section" id="changes">
+      <h2><span class="section-num">10</span> Изменения в Политике</h2>
+      <p>
+        Оператор вправе вносить изменения в настоящую Политику без предварительного уведомления.
+        Актуальная версия всегда доступна по адресу <strong>medicaplus.ru/privacy-policy.html</strong>.
+      </p>
+      <p>
+        При существенных изменениях (новые цели обработки, передача данных новым третьим лицам)
+        мы уведомим вас через всплывающее окно на сайте или по электронной почте.
+      </p>
+      <p>
+        Продолжая пользоваться сайтом после публикации изменений, вы подтверждаете
+        согласие с обновлённой редакцией Политики.
+      </p>
+    </section>
+
+    <!-- 11. КОНТАКТЫ -->
+    <section class="section" id="contacts">
+      <h2><span class="section-num">11</span> Контакты Оператора</h2>
+      <p>
+        По всем вопросам, связанным с обработкой персональных данных, обращайтесь к нам
+        любым удобным способом:
+      </p>
+
+      <div class="contact-box">
+        <h3>🏥 ООО «Медика Плюс»</h3>
+        <p>Оператор персональных данных</p>
+
+        <div class="contact-grid">
+          <div>
+            <div class="label">📍 Адрес</div>
+            <div>г. Санкт-Петербург,<br>Невский пр-т, 114</div>
+          </div>
+          <div>
+            <div class="label">📞 Телефон</div>
+            <div><a href="tel:+78121234567">+7 (812) 123-45-67</a></div>
+          </div>
+          <div>
+            <div class="label">✉ Email</div>
+            <div><a href="mailto:privacy@medicaplus.ru">privacy@medicaplus.ru</a></div>
+          </div>
+          <div>
+            <div class="label">🕐 Режим</div>
+            <div>Пн–Пт: 8:00–21:00<br>Сб–Вс: 9:00–18:00</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===== ФУТЕР ===== -->
+<footer class="footer">
+  © 2008–2026 ООО «Медика Плюс» · Все права защищены ·
+  <a href="index.html">Вернуться на главную</a>
+</footer>
+
+<script>
+/* ===== АКТИВНЫЙ ПУНКТ МЕНЮ ПРИ СКРОЛЛЕ ===== */
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = document.querySelectorAll('.section');
+
+function updateActiveToc() {
+  const scrollPos = window.scrollY + 120;
+  let currentId = '';
+
+  sections.forEach(section => {
+    if (scrollPos >= section.offsetTop) {
+      currentId = section.getAttribute('id');
+    }
+  });
+
+  tocLinks.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === '#' + currentId) {
+      link.classList.add('active');
+    }
+  });
+}
+
+window.addEventListener('scroll', updateActiveToc);
+updateActiveToc();
+
+/* ===== ПЛАВНАЯ ПРОКРУТКА ===== */
+tocLinks.forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const targetId = link.getAttribute('href').substring(1);
+    const target = document.getElementById(targetId);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+
+</body>
+</html>
