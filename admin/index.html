@@ -34,11 +34,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
 .editor-app { display: none; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 .editor-app.active { display: flex; }
 
-/* ═══════════════════════════════════════════════════════ */
-/* ШАПКА: ДВА РЯДА, ВСЁ ПРИЖАТО ВЛЕВО                       */
-/* Ряд 1: лого + страница + деплой + Сохранить + бейдж      */
-/* Ряд 2: рабочие кнопки (слева)                            */
-/* ═══════════════════════════════════════════════════════ */
 .editor-toolbar { background: #1a1a1a; border-bottom: 1px solid #2a2a2a; padding: 12px 20px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; z-index: 100; }
 .toolbar-row { display: flex; justify-content: flex-start; align-items: center; gap: 8px; flex-wrap: wrap; }
 .editor-toolbar h1 { font-size: 16px; font-weight: 600; display: flex; align-items: center; flex-wrap: wrap; row-gap: 6px; }
@@ -186,7 +181,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
 
 <div class="editor-app" id="editorApp">
     <div class="editor-toolbar">
-        <!-- ═══ РЯД 1: лого + страница + деплой + Сохранить + бейдж (всё слева) ═══ -->
         <div class="toolbar-row toolbar-row-top">
             <h1>
                 <i class="fas fa-magic" style="color: #F40009;"></i>
@@ -198,7 +192,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
             <button class="toolbar-btn primary" id="saveBtn"><i class="fas fa-cloud-upload-alt"></i> Сохранить в GitHub</button>
             <span class="unsaved-badge" id="unsavedBadge"><i class="fas fa-circle" style="font-size: 8px;"></i> есть несохранённые</span>
         </div>
-        <!-- ═══ РЯД 2: рабочие кнопки (прижаты влево) ═══ -->
         <div class="toolbar-row toolbar-row-bottom">
             <div class="toolbar-actions">
                 <button class="toolbar-btn" id="homeBtn" title="Вернуться к редактированию index.html"><i class="fas fa-home"></i></button>
@@ -277,6 +270,7 @@ let editKind = null, editKey = null, editImagePath = null, pendingImg = null, st
 let currentFile = localStorage.getItem('cms_currentFile') || 'index.html';
 let viewModeUrl = null;
 let siteBaseUrl = '';
+let siteBasePath = '/'; // pathname репозитория на GitHub Pages
 let repoDeployId = null;
 let deployPollGen = 0;
 const API = `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
@@ -288,17 +282,36 @@ function saveCurrentFile() {
     try { localStorage.setItem('cms_currentFile', currentFile); } catch {}
 }
 
+// ═══════════════════════════════════════════════════════
+// ВЫЧИСЛЕНИЕ БАЗОВОГО ПУТИ РЕПОЗИТОРИЯ
+// Для piapbookru-hub.github.io/test/ → siteBasePath = '/test/'
+// Для username.github.io → siteBasePath = '/'
+// ═══════════════════════════════════════════════════════
 try {
     const loc = window.location;
     const pathParts = loc.pathname.split('/').filter(Boolean);
-    if (pathParts.length > 1) {
-        pathParts.pop();
-        siteBaseUrl = loc.origin + '/' + pathParts.join('/') + '/';
+    // admin/index.html → pathParts = ['admin', 'index.html']
+    // или 'admin' → pathParts = ['admin']
+    if (pathParts.length > 0) {
+        // убираем 'admin' и 'index.html' (или 'index.html' если admin не в папке)
+        const lastPart = pathParts[pathParts.length - 1];
+        if (lastPart.endsWith('.html')) pathParts.pop();
+        const secondLast = pathParts[pathParts.length - 1];
+        if (secondLast === 'admin' || secondLast === 'panel') pathParts.pop();
+        if (pathParts.length > 0) {
+            siteBaseUrl = loc.origin + '/' + pathParts.join('/') + '/';
+            siteBasePath = '/' + pathParts.join('/') + '/';
+        } else {
+            siteBaseUrl = loc.origin + '/';
+            siteBasePath = '/';
+        }
     } else {
         siteBaseUrl = loc.origin + '/';
+        siteBasePath = '/';
     }
 } catch {
     siteBaseUrl = window.location.origin + '/';
+    siteBasePath = '/';
 }
 
 function updatePageIndicator() {
@@ -604,28 +617,72 @@ function reloadPreview() {
     showStatus('Обновляем превью...', 'info');
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: isInternalPage теперь проверяет что URL находится
+// именно в ЭТОМ репозитории (а не в другом на том же github.io)
+// ═══════════════════════════════════════════════════════
 function isInternalPage(href) {
     if (!href) return false;
     const clean = href.split(/[?#]/)[0];
     if (/^(tel:|mailto:|javascript:|data:)/i.test(clean)) return false;
     if (clean.startsWith('#')) return false;
-    if (!/^(https?:|\/\/)/i.test(clean)) return /\.html?$/i.test(clean);
+
+    // Относительный путь — всегда внутренний для этого репозитория
+    if (!/^(https?:|\/\/)/i.test(clean)) {
+        return /\.html?$/i.test(clean);
+    }
+
+    // Абсолютный URL — проверяем hostname И pathname
     try {
         const url = new URL(clean.startsWith('//') ? 'https:' + clean : clean);
         const base = new URL(siteBaseUrl);
-        if (url.hostname === base.hostname || url.hostname.endsWith('.' + base.hostname) || base.hostname.endsWith('.' + url.hostname)) {
-            return /\.html?$/i.test(url.pathname);
+
+        // Должен быть тот же hostname
+        if (url.hostname !== base.hostname) return false;
+
+        // Путь должен начинаться с базового пути репозитория
+        // (чтобы ссылки на другие репозитории того же пользователя не считались внутренними)
+        const normalizedUrlPath = url.pathname.replace(/^\/+/, '');
+        const normalizedBasePath = base.pathname.replace(/^\/+/, '');
+
+        if (normalizedBasePath && !normalizedUrlPath.startsWith(normalizedBasePath)) {
+            return false;
         }
-    } catch {}
-    return false;
+
+        return /\.html?$/i.test(url.pathname);
+    } catch {
+        return false;
+    }
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: normalizePagePath теперь ОТРЕЗАЕТ базовый путь репозитория
+// Было: https://piarbookru-hub.github.io/test/privacy-policy.html → 'test/privacy-policy.html'
+// Стало: https://piarbookru-hub.github.io/test/privacy-policy.html → 'privacy-policy.html'
+// ═══════════════════════════════════════════════════════
 function normalizePagePath(href) {
     let p = href.split(/[?#]/)[0];
+
+    // Если абсолютный URL — извлекаем pathname
     if (/^(https?:|\/\/)/i.test(p)) {
-        try { p = new URL(p.startsWith('//') ? 'https:' + p : p).pathname; } catch {}
+        try {
+            const url = new URL(p.startsWith('//') ? 'https:' + p : p);
+            p = url.pathname;
+        } catch {}
     }
+
     try { p = decodeURIComponent(p); } catch {}
+
+    // Отрезаем базовый путь репозитория (для GitHub Pages)
+    // Например: '/test/privacy-policy.html' → 'privacy-policy.html'
+    if (siteBasePath && siteBasePath !== '/') {
+        if (p.startsWith(siteBasePath)) {
+            p = p.slice(siteBasePath.length);
+        } else if (p.startsWith('/' + siteBasePath.replace(/^\/+/, ''))) {
+            p = p.slice(('/' + siteBasePath.replace(/^\/+/, '')).length);
+        }
+    }
+
     p = p.replace(/^(\.\/)+/, '').replace(/^\/+/, '');
     return p;
 }
