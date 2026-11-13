@@ -297,7 +297,6 @@ try {
     siteBasePath = '/';
 }
 
-// Базовый путь без trailing slash — для сравнения "это главная?"
 function siteBasePathNoSlash() {
     return siteBasePath.replace(/\/+$/, '');
 }
@@ -589,12 +588,25 @@ function showEditor() {
     loadSite();
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: сохраняем onload/onerror у <img>
+// Они безопасны (не дают доступа к токену) и нужны
+// для скрытия заглушек placeholder-label
+// ═══════════════════════════════════════════════════════
 function buildPreviewHtml(text) {
     const d = new DOMParser().parseFromString(text, 'text/html');
     if (!CMS_CONFIG.previewScripts) {
+        // Удаляем скрипты и noscript
         d.querySelectorAll('script, noscript, meta[http-equiv="refresh" i]').forEach(n => n.remove());
+        // Удаляем on* атрибуты, НО сохраняем onload/onerror у <img>
         d.querySelectorAll('*').forEach(el => {
-            Array.from(el.attributes).forEach(a => { if (/^on/i.test(a.name)) el.removeAttribute(a.name); });
+            Array.from(el.attributes).forEach(a => {
+                if (/^on/i.test(a.name)) {
+                    // onload и onerror у img — безопасны, нужны для заглушек
+                    if (el.tagName === 'IMG' && (a.name === 'onload' || a.name === 'onerror')) return;
+                    el.removeAttribute(a.name);
+                }
+            });
         });
     }
     d.querySelectorAll('a[href]').forEach(a => {
@@ -646,69 +658,36 @@ function reloadPreview() {
     showStatus('Обновляем превью...', 'info');
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: теперь распознаёт /, ./, пустую строку и базовый путь
-// как «главную страницу» (внутреннюю), а не как внешнюю ссылку
-// ═══════════════════════════════════════════════════════
 function isInternalPage(href) {
     if (href === undefined || href === null) return false;
-
-    // Пустая строка, '/', './' — это главная (index.html в корне сайта)
     if (href === '' || href === '/' || href === './') return true;
-
     const clean = href.split(/[?#]/)[0];
-
-    // Якорь — не страница
     if (clean.startsWith('#')) return false;
-
-    // Специальные протоколы — не страницы
     if (/^(tel:|mailto:|javascript:|data:)/i.test(clean)) return false;
-
     if (!/^(https?:|\/\/)/i.test(clean)) {
-        // Относительный путь:
-        // - пустой после очистки (например '/') — главная
-        // - заканчивается на '/' — папка = index.html в ней (считаем внутренней)
-        // - .html/.htm — страница
         if (clean === '' || clean === '.') return true;
         if (clean.endsWith('/')) return true;
         return /\.html?$/i.test(clean);
     }
-
-    // Абсолютный URL
     try {
         const url = new URL(clean.startsWith('//') ? 'https:' + clean : clean);
         const base = new URL(siteBaseUrl);
         if (url.hostname !== base.hostname) return false;
-
         const normalizedUrlPath = url.pathname.replace(/\/+$/, '');
         const normalizedBasePath = base.pathname.replace(/\/+$/, '');
-
-        // pathname совпадает с базовым путём — это главная
         if (normalizedUrlPath === normalizedBasePath) return true;
-
-        // вне базового пути — не наша страница
-        if (normalizedBasePath && !url.pathname.startsWith(normalizedBasePath + '/')) {
-            return false;
-        }
-
+        if (normalizedBasePath && !url.pathname.startsWith(normalizedBasePath + '/')) return false;
         return /\.html?$/i.test(url.pathname);
     } catch { return false; }
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: для /, ./, пустой строки, базового пути возвращает 'index.html'
-// ═══════════════════════════════════════════════════════
 function normalizePagePath(href) {
-    // «Главная» в любых формах
     if (href === '' || href === '/' || href === './') return 'index.html';
-
     let p = href.split(/[?#]/)[0];
-
     if (/^(https?:|\/\/)/i.test(p)) {
         try {
             const u = new URL(p.startsWith('//') ? 'https:' + p : p);
             const basePathNoSlash = siteBasePathNoSlash();
-            // Если pathname == базовому — это главная
             const up = u.pathname.replace(/\/+$/, '');
             if (up === basePathNoSlash) return 'index.html';
             p = u.pathname;
@@ -734,12 +713,8 @@ function normalizePagePath(href) {
             p = r || '';
         }
     }
-
     p = p.replace(/^(\.\/)+/, '');
-
-    // Пустой путь — считаем главной
     if (!p || p === '.') return 'index.html';
-
     if (p.split('/').some(s => s === '..')) return '';
     return p;
 }
@@ -800,22 +775,15 @@ async function prepareSite() {
 async function navigateTo(href) {
     const cleanPath = normalizePagePath(href);
     if (!cleanPath) { showStatus('Не удалось определить страницу по ссылке: ' + href, 'error'); return; }
-
-    // Если уже на этой странице и не в режиме просмотра — просто перезагружаем превью
-    if (cleanPath === currentFile && !viewModeUrl) {
-        reloadPreview();
-        return;
-    }
-
+    if (cleanPath === currentFile && !viewModeUrl) { reloadPreview(); return; }
     if (Object.keys(pending).length) {
         if (!confirm('Есть несохранённые правки. При переходе они будут потеряны. Продолжить?')) return;
         pending = {}; markUnsaved();
     }
-
     const prevFile = currentFile;
     currentFile = cleanPath;
     saveCurrentFile();
-    viewModeUrl = null;  // сбрасываем режим просмотра
+    viewModeUrl = null;
     updatePageIndicator();
     showStatus('Открываю ' + cleanPath + '...', 'info');
     try {
@@ -836,7 +804,6 @@ async function navigateTo(href) {
                 showEditor();
                 showStatus('✓ Страница ' + cleanPath + ' готова к редактированию!', 'success');
             } else {
-                // Не удалось — откатываемся
                 currentFile = prevFile;
                 saveCurrentFile();
                 updatePageIndicator();
@@ -864,20 +831,17 @@ function openExternalInIframe(url) {
     showStatus('Режим просмотра: редактирование недоступно. Нажмите «Домой» для возврата.', 'info');
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: goHome всегда переходит на index.html
-// (раньше при viewModeUrl просто загружал currentFile)
-// ═══════════════════════════════════════════════════════
 function goHome() {
-    if (currentFile === 'index.html' && !viewModeUrl) {
-        reloadPreview();
-        return;
-    }
+    if (currentFile === 'index.html' && !viewModeUrl) { reloadPreview(); return; }
     navigateTo('index.html');
 }
 
 function openLiveSite() { window.open(viewModeUrl ? viewModeUrl : pageUrl().href, '_blank', 'noopener'); }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: hookIframe теперь скрывает заглушки
+// для уже загруженных изображений (решает проблему кэша)
+// ═══════════════════════════════════════════════════════
 function hookIframe() {
     let d;
     try { d = $('siteIframe').contentDocument; } catch { return; }
@@ -885,6 +849,15 @@ function hookIframe() {
     const st = d.createElement('style');
     st.textContent = `[data-edit]:hover, [data-img]:hover { outline: 2px dashed #F40009; outline-offset: 2px; cursor: pointer; }`;
     d.head.appendChild(st);
+
+    // Скрываем placeholder-label для уже загруженных img
+    // (решает проблему когда img загрузился из кэша до назначения onload)
+    d.querySelectorAll('img').forEach(img => {
+        if (img.complete && img.naturalWidth > 0) {
+            const label = img.parentElement?.querySelector('.placeholder-label');
+            if (label) label.style.display = 'none';
+        }
+    });
 
     const handleModifierOpen = ev => {
         const linkEl = ev.target.closest && ev.target.closest('a[href]');
@@ -903,7 +876,6 @@ function hookIframe() {
                 ev.preventDefault();
                 ev.stopPropagation();
                 const href = (linkEl.getAttribute('href') || '').trim();
-                // Пустой href — ничего не делаем
                 if (href === '') return;
                 if (/^(tel:|mailto:)/i.test(href)) { openSafe(href); return; }
                 if (href.startsWith('#')) {
