@@ -273,6 +273,15 @@ let siteBaseUrl = '';
 let siteBasePath = '/';
 let repoDeployId = null;
 let deployPollGen = 0;
+
+// ═══════════════════════════════════════════════════════
+// НОВОЕ: ЗАЩИТА ОТ ПАРАЛЛЕЛЬНЫХ ОПЕРАЦИЙ И КЭШ ФАЙЛОВ
+// ═══════════════════════════════════════════════════════
+let isProcessing = false;              // блокирует повторные вызовы navigateTo/prepareCurrentFile
+const fileCache = new Map();           // кэш загруженных файлов: path → { text, sha, timestamp }
+const FILE_CACHE_TTL = 30000;          // TTL кэша: 30 секунд
+let operationId = 0;                   // generation counter для отмены устаревших операций
+
 const API = `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
 
 $('projectNameHeader').textContent = CMS_CONFIG.projectName || 'Редактор';
@@ -280,6 +289,16 @@ $('repoNameHeader').textContent = `· ${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
 
 function saveCurrentFile() {
     try { localStorage.setItem('cms_currentFile', currentFile); } catch {}
+}
+
+// Очистить кэш одного файла (после сохранения/подготовки)
+function invalidateFileCache(path) {
+    fileCache.delete(path);
+}
+
+// Очистить весь кэш
+function clearAllCache() {
+    fileCache.clear();
 }
 
 try {
@@ -429,16 +448,39 @@ async function gh(url, opts = {}) {
     return res;
 }
 
-async function getFile(path) {
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: getFile теперь использует кэш
+// ═══════════════════════════════════════════════════════
+async function getFile(path, forceFresh = false) {
+    // Проверяем кэш
+    if (!forceFresh && fileCache.has(path)) {
+        const cached = fileCache.get(path);
+        if (Date.now() - cached.timestamp < FILE_CACHE_TTL) {
+            return { text: cached.text, sha: cached.sha };
+        }
+        fileCache.delete(path);
+    }
+
     const url = `${API}/contents/${encPath(path)}?ref=${encodeURIComponent(CMS_CONFIG.branch)}`;
     const d = await (await gh(url)).json();
     let text;
     if (d.encoding === 'base64' && d.content) text = b64d(d.content);
     else text = await (await gh(url, { headers: { 'Accept': 'application/vnd.github.raw+json' } })).text();
+
+    // Сохраняем в кэш
+    fileCache.set(path, { text, sha: d.sha, timestamp: Date.now() });
+
     return { text, sha: d.sha };
 }
 
 async function getSha(path) {
+    // Пробуем взять из кэша
+    if (fileCache.has(path)) {
+        const cached = fileCache.get(path);
+        if (Date.now() - cached.timestamp < FILE_CACHE_TTL) {
+            return cached.sha;
+        }
+    }
     try { return (await (await gh(`${API}/contents/${encPath(path)}?ref=${encodeURIComponent(CMS_CONFIG.branch)}`)).json()).sha; }
     catch (e) { if (e.status === 404) return null; throw e; }
 }
@@ -446,9 +488,14 @@ async function getSha(path) {
 async function putFile(path, b64, sha, message) {
     const body = { message: message || `Обновление ${path}`, content: b64, branch: CMS_CONFIG.branch };
     if (sha) body.sha = sha;
-    return (await gh(`${API}/contents/${encPath(path)}`, {
+    const result = await (await gh(`${API}/contents/${encPath(path)}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     })).json();
+
+    // После сохранения — инвалидируем кэш этого файла
+    invalidateFileCache(path);
+
+    return result;
 }
 
 function interpretError(status, body = '') {
@@ -556,6 +603,7 @@ function logout() {
     if (Object.keys(pending).length && !confirm('Есть несохранённые изменения. Выйти?')) return;
     localStorage.removeItem('gh_token');
     localStorage.removeItem('cms_currentFile');
+    clearAllCache();
     location.reload();
 }
 
@@ -607,6 +655,7 @@ async function loadSite() {
 
 function reloadPreview() {
     if (Object.keys(pending).length && !confirm('Несохранённые правки в превью пропадут. Обновить?')) return;
+    invalidateFileCache(currentFile);
     loadSite();
     showStatus('Обновляем превью...', 'info');
 }
@@ -649,9 +698,16 @@ function normalizePagePath(href) {
     return p;
 }
 
-async function prepareCurrentFile(logContainer = null) {
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: prepareCurrentFile теперь принимает параметр forceReprepare
+// При forceReprepare=true очищает pending (чтобы старые ключи не ломали)
+// ═══════════════════════════════════════════════════════
+async function prepareCurrentFile(logContainer = null, forceReprepare = false) {
     const btn = $('prepareBtn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Подготовка...'; }
+
+    const fileBeingPrepared = currentFile;  // фиксируем файл на момент начала
+
     const li = (msg, type = '') => {
         if (logContainer) {
             const div = document.createElement('div');
@@ -661,30 +717,57 @@ async function prepareCurrentFile(logContainer = null) {
             logContainer.scrollTop = logContainer.scrollHeight;
         }
     };
+
     try {
-        li('Загрузка ' + currentFile + ' из репозитория...', 'working');
-        const f = await getFile(currentFile);
-        if (!f.text.trim()) throw new Error(currentFile + ' пуст или не прочитан');
-        li(`${currentFile} загружен (${(f.text.length / 1024).toFixed(1)} КБ)`, 'done');
+        li(`[${fileBeingPrepared}] Загрузка из репозитория...`, 'working');
+        const f = await getFile(fileBeingPrepared, true);  // forceFresh = true
+        if (!f.text.trim()) throw new Error(fileBeingPrepared + ' пуст или не прочитан');
+        li(`[${fileBeingPrepared}] Загружен (${(f.text.length / 1024).toFixed(1)} КБ)`, 'done');
+
         if (f.text.includes('data-edit="') || f.text.includes('data-img=')) {
-            li('Обнаружены старые метки — очищаем...', 'working');
+            li(`[${fileBeingPrepared}] Обнаружены старые метки — очищаем...`, 'working');
             const cleaned = cleanHtmlMarks(f.text);
             f.text = cleaned.html;
-            li(`Удалено: ${cleaned.removedEdit} text-меток и ${cleaned.removedImg} img-меток`, 'done');
+            li(`[${fileBeingPrepared}] Удалено: ${cleaned.removedEdit} text-меток и ${cleaned.removedImg} img-меток`, 'done');
+
+            // КРИТИЧЕСКИ ВАЖНО: если идёт принудительная переподготовка — сбрасываем pending
+            // иначе правки ссылаются на старые ключи которых больше нет
+            if (forceReprepare && Object.keys(pending).length) {
+                pending = {};
+                markUnsaved();
+                li(`[${fileBeingPrepared}] Сброшены несохранённые правки (ключи устарели)`, 'done');
+            }
         }
-        li('Анализ контента и расстановка меток...', 'working');
+
+        li(`[${fileBeingPrepared}] Анализ контента и расстановка меток...`, 'working');
         const r = processHtml(f.text);
-        li(`Найдено ${r.textCount} текстов и ${r.imgCount} картинок`, 'done');
-        li('Сохранение подготовленного ' + currentFile + '...', 'working');
+        li(`[${fileBeingPrepared}] Найдено ${r.textCount} текстов и ${r.imgCount} картинок`, 'done');
+
+        // ПРОВЕРКА: currentFile не изменился во время подготовки (race condition)
+        if (currentFile !== fileBeingPrepared) {
+            li(`⚠ Операция прервана: currentFile сменился на ${currentFile}`, 'error');
+            showStatus('⚠ Операция прервана — начался переход на другую страницу', 'info');
+            return false;
+        }
+
+        li(`[${fileBeingPrepared}] Сохранение в репозиторий...`, 'working');
         const deployId = newDeployId();
         const stamped = stampDeployId(r.html, deployId);
-        await putFile(currentFile, b64e(stamped), f.sha, `Подготовка ${currentFile} к редактированию`);
+        await putFile(fileBeingPrepared, b64e(stamped), f.sha, `Подготовка ${fileBeingPrepared} к редактированию`);
         repoDeployId = deployId;
-        li(currentFile + ' обновлён в репозитории', 'done');
+
+        // Обновляем кэш свежей версией
+        fileCache.set(fileBeingPrepared, {
+            text: stamped,
+            sha: f.sha,
+            timestamp: Date.now()
+        });
+
+        li(`[${fileBeingPrepared}] ✓ Обновлён в репозитории`, 'done');
         li('Подготовка завершена!', 'done');
         return true;
     } catch (e) {
-        li('Ошибка: ' + e.message, 'error');
+        li(`✗ Ошибка: ${e.message}`, 'error');
         const i = interpretError(e.status, e.body);
         showErrorDetails(i.title, e.status || 'ошибка', e.body || e.message, i.fix);
         showStatus(`✗ ${i.title}`, 'error');
@@ -695,62 +778,100 @@ async function prepareCurrentFile(logContainer = null) {
 }
 
 async function prepareSite() {
-    const log = $('progressLog');
-    log.style.display = 'block'; log.innerHTML = '';
-    $('errorDetails').innerHTML = '';
-    const ok = await prepareCurrentFile(log);
-    if (ok) {
-        setTimeout(() => { showStatus('Страница подготовлена! Открываем редактор...'); setTimeout(showEditor, 500); }, 300);
+    if (isProcessing) {
+        showStatus('Идёт другая операция, подождите...', 'info');
+        return;
+    }
+    isProcessing = true;
+    try {
+        const log = $('progressLog');
+        log.style.display = 'block'; log.innerHTML = '';
+        $('errorDetails').innerHTML = '';
+        const ok = await prepareCurrentFile(log, false);
+        if (ok) {
+            setTimeout(() => { showStatus('Страница подготовлена! Открываем редактор...'); setTimeout(showEditor, 500); }, 300);
+        }
+    } finally {
+        isProcessing = false;
     }
 }
 
 // ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: проверка готовности файла ПЕРЕД подготовкой
-// Если метки уже есть — просто открываем редактор (без коммита)
-// Если меток нет — подготавливаем файл
+// ИСПРАВЛЕНО: navigateTo теперь защищён от race condition
+// - флаг isProcessing блокирует повторные вызовы
+// - operationId отменяет устаревшие операции
+// - проверка currentFile после каждой await
 // ═══════════════════════════════════════════════════════
 async function navigateTo(href) {
+    if (isProcessing) {
+        showStatus('Идёт другая операция, подождите...', 'info');
+        return;
+    }
+
     const cleanPath = normalizePagePath(href);
     if (!cleanPath) return;
+
+    // Если это та же страница что открыта — просто перезагружаем превью
+    if (cleanPath === currentFile && !viewModeUrl) {
+        reloadPreview();
+        return;
+    }
+
     if (Object.keys(pending).length) {
         if (!confirm('Есть несохранённые правки. При переходе они будут потеряны. Продолжить?')) return;
-        pending = {}; markUnsaved();
+        pending = {};
+        markUnsaved();
     }
-    currentFile = cleanPath;
-    saveCurrentFile();
-    viewModeUrl = null;
-    updatePageIndicator();
 
-    showStatus('Открываю ' + cleanPath + '...', 'info');
+    isProcessing = true;
+    const myOpId = ++operationId;
 
     try {
-        const f = await getFile(currentFile);
+        currentFile = cleanPath;
+        saveCurrentFile();
+        viewModeUrl = null;
+        updatePageIndicator();
+
+        showStatus('Открываю ' + cleanPath + '...', 'info');
+
+        const f = await getFile(cleanPath);
+
+        // Проверка: операция ещё актуальна?
+        if (myOpId !== operationId) return;
 
         if (f.text.includes('data-edit="')) {
-            // ✅ Файл УЖЕ подготовлен — открываем редактор мгновенно, БЕЗ коммита
+            // ✅ Файл УЖЕ подготовлен — мгновенное открытие
             repoDeployId = readDeployId(f.text);
             showEditor();
             showStatus('✓ ' + cleanPath + ' открыта для редактирования', 'success');
         } else {
-            // Файл не подготовлен — запускаем подготовку (разовый коммит)
+            // Файл не подготовлен — готовим
             showSetup();
             $('setupTitle').textContent = 'Подготовка ' + cleanPath;
             $('errorDetails').innerHTML = '';
             const log = $('progressLog');
             log.style.display = 'block'; log.innerHTML = '';
             showStatus('Страница не подготовлена — подготавливаю ' + cleanPath + '...', 'info');
-            const ok = await prepareCurrentFile(log);
+
+            if (myOpId !== operationId) return;
+
+            const ok = await prepareCurrentFile(log, true);
+            if (myOpId !== operationId) return;
+
             if (ok) {
                 showEditor();
                 showStatus('✓ Страница ' + cleanPath + ' готова к редактированию!', 'success');
             }
         }
     } catch (e) {
+        if (myOpId !== operationId) return;
         const i = interpretError(e.status, e.body);
         showStatus('✗ Не удалось открыть ' + cleanPath + ': ' + i.title, 'error');
         currentFile = 'index.html';
         saveCurrentFile();
         updatePageIndicator();
+    } finally {
+        if (myOpId === operationId) isProcessing = false;
     }
 }
 
@@ -1184,20 +1305,34 @@ function processHtml(html) {
     return { html: prettifyHtml(rawHtml), textCount, imgCount };
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: cleanMarks теперь с защитой от race condition
+// ═══════════════════════════════════════════════════════
 async function cleanMarks() {
+    if (isProcessing) {
+        showStatus('Идёт другая операция, подождите...', 'info');
+        return;
+    }
     if (Object.keys(pending).length > 0) {
         if (!confirm('У вас есть несохранённые правки. Они будут потеряны при очистке. Продолжить?')) return;
         pending = {}; markUnsaved();
     }
     if (!confirm('Удалить ВСЕ метки редактирования (data-edit, data-img, data-img-id) из ' + currentFile + '?\n\nПравки текстов и ручные ссылки СОХРАНЯТСЯ.\nПосле очистки нужно снова нажать «Подготовить страницу».\n\nПродолжить?')) return;
+
+    isProcessing = true;
     const btn = $('cleanBtn');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Очищаю...';
+    const fileBeingCleaned = currentFile;
     try {
-        showStatus('Загружаю ' + currentFile + '...', 'info');
-        const f = await getFile(currentFile);
+        showStatus('Загружаю ' + fileBeingCleaned + '...', 'info');
+        const f = await getFile(fileBeingCleaned, true);
         if (!f.text.includes('data-edit="') && !f.text.includes('data-img=')) {
             showStatus('Меток в файле нет — очищать нечего', 'info');
+            return;
+        }
+        if (currentFile !== fileBeingCleaned) {
+            showStatus('⚠ Операция прервана — сменилась страница', 'info');
             return;
         }
         showStatus('Удаляю метки...', 'info');
@@ -1206,7 +1341,7 @@ async function cleanMarks() {
         const deployId = newDeployId();
         const stamped = stampDeployId(pretty, deployId);
         showStatus('Сохраняю очищенный файл...', 'info');
-        await putFile(currentFile, b64e(stamped), f.sha, `Очистка меток редактирования в ${currentFile}`);
+        await putFile(fileBeingCleaned, b64e(stamped), f.sha, `Очистка меток редактирования в ${fileBeingCleaned}`);
         repoDeployId = deployId;
         showStatus(`✓ Очищено: ${result.removedEdit} text-меток и ${result.removedImg} img-меток.`, 'success');
         setTimeout(() => { showSetup(); $('setupTitle').textContent = 'Страница очищена — готова к подготовке'; }, 1500);
@@ -1216,6 +1351,7 @@ async function cleanMarks() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-broom"></i> Очистить метки';
+        isProcessing = false;
     }
 }
 
@@ -1405,11 +1541,18 @@ function closePanel() {
 }
 
 async function saveAll() {
+    if (isProcessing) {
+        showStatus('Идёт другая операция, подождите...', 'info');
+        return;
+    }
     const keys = Object.keys(pending);
     if (!keys.length) return showStatus('Нет изменений для сохранения', 'info');
+
+    isProcessing = true;
     const btn = $('saveBtn');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+    const fileBeingSaved = currentFile;
     const done = [], failed = [];
     try {
         const texts = keys.filter(k => pending[k].type === 'text');
@@ -1418,7 +1561,7 @@ async function saveAll() {
         const imagesWithLinks = images.filter(k => pending[k].link !== undefined);
 
         if (texts.length || imagesWithLinks.length) {
-            const f = await getFile(currentFile);
+            const f = await getFile(fileBeingSaved, true);
             const doc = new DOMParser().parseFromString(f.text, 'text/html');
 
             for (const k of texts) {
@@ -1443,8 +1586,15 @@ async function saveAll() {
             const rawHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
             const deployId = newDeployId();
             const stamped = stampDeployId(prettifyHtml(rawHtml), deployId);
-            await putFile(currentFile, b64e(stamped), f.sha, `Редактирование текстов и ссылок в ${currentFile}`);
+            await putFile(fileBeingSaved, b64e(stamped), f.sha, `Редактирование текстов и ссылок в ${fileBeingSaved}`);
             repoDeployId = deployId;
+
+            // Обновляем кэш свежей версией
+            fileCache.set(fileBeingSaved, {
+                text: stamped,
+                sha: f.sha,
+                timestamp: Date.now()
+            });
         }
 
         for (const k of imagesWithData) {
@@ -1471,13 +1621,23 @@ async function saveAll() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Сохранить в GitHub';
+        isProcessing = false;
     }
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: resetSite теперь очищает pending перед переподготовкой
+// ═══════════════════════════════════════════════════════
 async function resetSite() {
+    if (isProcessing) {
+        showStatus('Идёт другая операция, подождите...', 'info');
+        return;
+    }
     if (Object.keys(pending).length && !confirm('Есть несохранённые правки, они будут потеряны. Продолжить?')) return;
-    if (!confirm('Переподготовить страницу ' + currentFile + '? Метки будут обновлены.')) return;
-    pending = {}; markUnsaved();
+    if (!confirm('Переподготовить страницу ' + currentFile + '?\n\nМетки будут обновлены.\nНесохранённые правки будут сброшены.')) return;
+
+    pending = {};
+    markUnsaved();
     showSetup();
     $('setupTitle').textContent = 'Переподготовка ' + currentFile;
     $('progressLog').style.display = 'none';
