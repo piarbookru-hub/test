@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Админ-панель — визуальный редактор</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="config.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; min-height: 100dvh; overflow: hidden; }
+
+.login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; padding: 20px; }
+.login-card { background: #1a1a1a; border-radius: 16px; padding: 40px; max-width: 480px; width: 100%; border: 1px solid #2a2a2a; }
+.login-card h1 { font-size: 24px; margin-bottom: 8px; }
+.subtitle { color: #888; margin-bottom: 24px; font-size: 14px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: #aaa; font-weight: 500; }
+.form-group input { width: 100%; padding: 12px 14px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; color: #fff; font: inherit; font-size: 14px; }
+input:focus, textarea:focus { outline: none; border-color: #F40009; }
+button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offset: 2px; }
+.btn { width: 100%; padding: 14px; background: #F40009; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: background .2s; }
+.btn:hover { background: #d40007; }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+.btn-secondary { background: #2a2a2a; }
+.btn-secondary:hover { background: #333; }
+.help-link { color: #F40009; font-size: 13px; text-decoration: none; display: inline-block; margin-top: 12px; }
+.error-msg { color: #ff4444; font-size: 13px; margin-top: 8px; display: none; background: rgba(255, 68, 68, .1); padding: 10px; border-radius: 6px; border: 1px solid rgba(255, 68, 68, .3); }
+.error-msg.show { display: block; }
+
+.editor-app { display: none; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+.editor-app.active { display: flex; }
+
+/* ═══════════════════════════════════════════════════════ */
+/* ШАПКА: ДВА РЯДА, ВСЁ ПРИЖАТО ВЛЕВО                       */
+/* Ряд 1: лого + страница + деплой + Сохранить + бейдж      */
+/* Ряд 2: рабочие кнопки (слева)                            */
+/* ═══════════════════════════════════════════════════════ */
+.editor-toolbar { background: #1a1a1a; border-bottom: 1px solid #2a2a2a; padding: 12px 20px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; z-index: 100; }
+.toolbar-row { display: flex; justify-content: flex-start; align-items: center; gap: 8px; flex-wrap: wrap; }
+.editor-toolbar h1 { font-size: 16px; font-weight: 600; display: flex; align-items: center; flex-wrap: wrap; row-gap: 6px; }
+.toolbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-start; }
+.toolbar-btn { background: #2a2a2a; border: 1px solid #333; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: all .2s; }
+.toolbar-btn:hover { border-color: #F40009; }
+.toolbar-btn.primary { background: #F40009; border-color: #F40009; }
+.toolbar-btn.primary:hover { background: #d40007; }
+.toolbar-btn.warning { background: #8B4513; border-color: #A0522D; }
+.toolbar-btn.warning:hover { background: #A0522D; border-color: #CD853F; }
+.toolbar-btn:disabled { opacity: .5; cursor: not-allowed; }
+.unsaved-badge { background: #F40009; color: #fff; padding: 3px 8px; border-radius: 10px; font-size: 11px; margin-left: 0; display: none; white-space: nowrap; }
+.unsaved-badge.show { display: inline-block; }
+
+.deploy-badge { display: none; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-family: 'Courier New', monospace; cursor: pointer; border: 1px solid #333; background: #0f0f0f; color: #888; margin-left: 0; transition: all .2s; user-select: none; }
+.deploy-badge:hover { border-color: #666; }
+.deploy-badge.live { color: #00cc66; border-color: rgba(0, 204, 102, .45); background: rgba(0, 204, 102, .08); }
+.deploy-badge.pending { color: #fbbf24; border-color: rgba(251, 191, 36, .45); background: rgba(251, 191, 36, .08); }
+.deploy-badge.error { color: #ff4444; border-color: rgba(255, 68, 68, .45); background: rgba(255, 68, 68, .08); }
+.deploy-badge.unknown { color: #888; }
+
+.page-indicator { display: inline-flex; align-items: center; gap: 6px; background: #0f0f0f; border: 1px solid #333; padding: 7px 12px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; color: #c9a961; margin-left: 0; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-indicator i { color: #F40009; font-size: 11px; flex-shrink: 0; }
+.page-indicator.viewmode { color: #888; border-color: #555; }
+
+.iframe-wrapper { flex: 1; position: relative; background: #fff; overflow: hidden; }
+.site-iframe { width: 100%; height: 100%; border: none; display: block; }
+.iframe-loader { position: absolute; inset: 0; background: #0f0f0f; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; transition: opacity .3s; }
+.iframe-loader.hidden { opacity: 0; pointer-events: none; }
+.spinner { width: 48px; height: 48px; border: 4px solid #2a2a2a; border-top-color: #F40009; border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 16px; }
+.loader-text { color: #888; font-size: 14px; }
+.loader-status { color: #F40009; font-size: 12px; margin-top: 6px; font-family: 'Courier New', monospace; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.setup-screen { display: none; align-items: center; justify-content: center; flex: 1; padding: 20px; background: #0f0f0f; overflow-y: auto; }
+.setup-screen.active { display: flex; }
+.setup-card { background: #1a1a1a; border-radius: 16px; padding: 40px; max-width: 600px; width: 100%; border: 1px solid #2a2a2a; text-align: center; }
+.setup-card > .setup-icon { font-size: 48px; color: #F40009; margin-bottom: 16px; }
+.setup-card h2 { font-size: 20px; margin-bottom: 12px; }
+.setup-card p { color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+.setup-card strong { color: #fff; }
+
+.token-check-box { background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 10px; padding: 16px; margin-bottom: 20px; text-align: left; }
+.token-check-box h3 { font-size: 14px; margin-bottom: 10px; color: #F40009; }
+.token-info { font-family: 'Courier New', monospace; font-size: 12px; color: #aaa; background: #000; padding: 10px; border-radius: 6px; word-break: break-all; margin-top: 8px; }
+.token-info .label { color: #888; display: block; margin-bottom: 4px; }
+
+.error-details { background: rgba(255, 68, 68, .1); border: 1px solid rgba(255, 68, 68, .3); border-radius: 8px; padding: 16px; margin-top: 16px; text-align: left; font-family: 'Courier New', monospace; font-size: 13px; color: #ff4444; word-break: break-word; }
+.err-title { font-weight: 700; color: #fff; margin-bottom: 8px; font-family: 'Inter', sans-serif; font-size: 14px; }
+.err-status { color: #F40009; font-weight: 600; margin-bottom: 6px; }
+.err-fix { color: #00cc66; margin-top: 10px; font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.progress-log { text-align: left; background: #0f0f0f; border-radius: 8px; padding: 16px; margin-top: 20px; max-height: 250px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 13px; }
+.log-item { padding: 4px 0; color: #888; }
+.log-item.done { color: #00cc66; }
+.log-item.error { color: #ff4444; }
+.log-item.working { color: #F40009; }
+
+.edit-panel { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; border-top: 2px solid #F40009; padding: 20px; transform: translateY(100%); visibility: hidden; transition: transform .3s, visibility .3s; z-index: 1000; box-shadow: 0 -10px 40px rgba(0, 0, 0, .5); max-height: 70vh; overflow-y: auto; }
+.edit-panel.active { transform: translateY(0); visibility: visible; }
+.edit-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.edit-panel-header h3 { font-size: 14px; font-weight: 600; }
+.key-badge { background: #2a2a2a; color: #888; padding: 2px 8px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 11px; margin-left: 8px; }
+.edit-panel-close { background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer; padding: 4px 8px; }
+.edit-panel-close:hover { color: #fff; }
+.edit-panel textarea { width: 100%; min-height: 90px; padding: 12px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; color: #fff; font: inherit; font-size: 14px; resize: vertical; }
+.edit-panel-actions { display: flex; gap: 10px; margin-top: 12px; justify-content: flex-end; }
+
+.link-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid #2a2a2a; }
+.link-section label.field-label { display: block; font-size: 12px; color: #aaa; margin-bottom: 6px; font-weight: 500; }
+.link-section input[type="url"] { width: 100%; padding: 10px 12px; background: #0f0f0f; border: 1px solid #333; border-radius: 6px; color: #fff; font: inherit; font-size: 13px; }
+.link-checkbox { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: #ccc; cursor: pointer; user-select: none; }
+.link-checkbox input[type="checkbox"] { width: 16px; height: 16px; accent-color: #F40009; cursor: pointer; }
+.link-hint { font-size: 11px; color: #666; margin-top: 6px; }
+
+.link-option { margin-top: 12px; }
+.link-option > .field-label { margin-bottom: 8px; }
+.option-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.radio-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #0f0f0f;
+    border: 1px solid #333;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #ccc;
+    transition: all .2s;
+    user-select: none;
+}
+.radio-label:hover { border-color: #666; }
+.radio-label input[type="radio"] { accent-color: #F40009; cursor: pointer; margin: 0; }
+.radio-label:has(input:checked) { border-color: #F40009; background: rgba(244, 0, 9, .08); }
+
+.color-preview { display: inline-block; padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+.color-preview.inherit { color: #fff; background: #2a2a2a; }
+.color-preview.brown { color: #fff; background: #8B4513; }
+.color-preview.lightbrown { color: #fff; background: #CD853F; }
+
+.target-label { color: #ccc; }
+
+.file-upload { display: flex; align-items: center; gap: 12px; padding: 16px; background: #0f0f0f; border: 2px dashed #333; border-radius: 8px; cursor: pointer; transition: border-color .2s; }
+.file-upload:hover, .file-upload:focus-within { border-color: #F40009; }
+.file-upload i { font-size: 24px; color: #F40009; }
+.upload-text { flex: 1; font-size: 14px; color: #aaa; }
+.file-upload input[type=file] { position: absolute; opacity: 0; width: 1px; height: 1px; }
+
+.status-bar { position: fixed; top: 60px; right: 24px; background: #1a1a1a; padding: 12px 18px; border-radius: 8px; border: 1px solid #2a2a2a; font-size: 14px; display: none; z-index: 2000; max-width: 420px; }
+.status-bar.show { display: block; animation: slideIn .3s ease-out; }
+.status-bar.success { border-color: #00cc66; color: #00cc66; }
+.status-bar.error { border-color: #ff4444; color: #ff4444; }
+.status-bar.info { border-color: #888; color: #ddd; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.hint-banner { background: rgba(244, 0, 9, .1); border-bottom: 1px solid rgba(244, 0, 9, .3); padding: 8px 20px; font-size: 13px; color: #aaa; text-align: center; }
+.hint-banner strong { color: #F40009; }
+.hint-banner i { color: #F40009; margin-right: 6px; }
+
+.btn-group { display: flex; gap: 10px; margin-top: 16px; }
+.btn-group .btn { flex: 1; }
+.btn-small { width: auto; padding: 10px 16px; font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+        <h1><i class="fas fa-lock" style="color: #F40009;"></i> Вход в админ-панель</h1>
+        <p class="subtitle">Введите ваш GitHub Personal Access Token</p>
+        <div class="form-group">
+            <label for="tokenInput">Personal Access Token</label>
+            <input type="password" id="tokenInput" placeholder="github_pat_… или ghp_…" autocomplete="off">
+        </div>
+        <button class="btn" id="loginBtn">Войти</button>
+        <div class="error-msg" id="loginError" role="alert"></div>
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer" class="help-link">
+            <i class="fas fa-external-link-alt"></i> Создать fine-grained токен (один репозиторий, Contents: Read and write)
+        </a>
+    </div>
+</div>
+
+<div class="editor-app" id="editorApp">
+    <div class="editor-toolbar">
+        <!-- ═══ РЯД 1: лого + страница + деплой + Сохранить + бейдж (всё слева) ═══ -->
+        <div class="toolbar-row toolbar-row-top">
+            <h1>
+                <i class="fas fa-magic" style="color: #F40009;"></i>
+                <span id="projectNameHeader" style="font-weight: 600; margin-left: 8px;">Редактор</span>
+                <span id="repoNameHeader" style="color: #888; font-weight: 400; margin-left: 8px; font-size: 13px;"></span>
+            </h1>
+            <span class="page-indicator" id="pageIndicatorBox" title="Текущая страница"><i class="fas fa-file"></i> <span id="currentPageIndicator">index.html</span></span>
+            <span class="deploy-badge" id="deployBadge" title="Статус деплоя GitHub Pages. Клик — перепроверить."></span>
+            <button class="toolbar-btn primary" id="saveBtn"><i class="fas fa-cloud-upload-alt"></i> Сохранить в GitHub</button>
+            <span class="unsaved-badge" id="unsavedBadge"><i class="fas fa-circle" style="font-size: 8px;"></i> есть несохранённые</span>
+        </div>
+        <!-- ═══ РЯД 2: рабочие кнопки (прижаты влево) ═══ -->
+        <div class="toolbar-row toolbar-row-bottom">
+            <div class="toolbar-actions">
+                <button class="toolbar-btn" id="homeBtn" title="Вернуться к редактированию index.html"><i class="fas fa-home"></i></button>
+                <button class="toolbar-btn" id="openSiteBtn" title="Открыть текущую страницу в новой вкладке"><i class="fas fa-external-link-alt"></i> Открыть сайт</button>
+                <button class="toolbar-btn" id="checkBtn" title="Проверить токен"><i class="fas fa-shield-alt"></i> Проверить</button>
+                <button class="toolbar-btn" id="reloadBtn" title="Обновить превью"><i class="fas fa-sync"></i> Обновить</button>
+                <button class="toolbar-btn warning" id="cleanBtn" title="Удалить все метки data-edit и data-img из текущей страницы"><i class="fas fa-broom"></i> Очистить метки</button>
+                <button class="toolbar-btn" id="resetBtn" title="Подготовить текущую страницу заново"><i class="fas fa-redo"></i> Переподготовить</button>
+                <button class="toolbar-btn" id="logoutBtn" title="Выйти" aria-label="Выйти"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="hint-banner" id="hintBanner">
+        <i class="fas fa-lightbulb"></i> Клик по <strong>тексту/фото</strong> — редактирование. <strong>Alt+клик</strong> по ссылке — открыть страницу в админке. <strong>Ctrl+клик</strong> — новая вкладка. Зелёный значок <strong>«Сайт обновлён»</strong> — правки уже на живом сайте. <strong>Esc</strong> — закрыть панель.
+    </div>
+
+    <div class="setup-screen" id="setupScreen">
+        <div class="setup-card">
+            <div class="setup-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+            <h2 id="setupTitle">Подготовка сайта</h2>
+            <p>Админка автоматически:<br>• Загрузит текущую страницу<br>• Пометит <strong>весь видимый текст</strong> (любой язык, цифры)<br>• Расставит метки на <strong>фотографии</strong> (с уникальными ID)<br>• Сохранит обратно в репозиторий</p>
+            <div class="token-check-box"><h3><i class="fas fa-key"></i> Информация о токене</h3><div id="tokenInfo">Проверяю...</div></div>
+            <button class="btn" id="prepareBtn"><i class="fas fa-download"></i> Подготовить страницу</button>
+            <div class="btn-group">
+                <button class="btn btn-secondary btn-small" id="checkBtn2"><i class="fas fa-shield-alt"></i> Проверить токен</button>
+                <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-small" style="text-decoration: none; text-align: center; color: #fff;"><i class="fas fa-plus"></i> Новый токен</a>
+            </div>
+            <div id="errorDetails" role="alert"></div>
+            <div class="progress-log" id="progressLog" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="iframe-wrapper" id="iframeWrapper" style="display: none;">
+        <div class="iframe-loader" id="iframeLoader">
+            <div class="spinner"></div>
+            <div class="loader-text">Загрузка страницы...</div>
+            <div class="loader-status" id="loaderStatus">Инициализация</div>
+        </div>
+        <iframe id="siteIframe" class="site-iframe" title="Превью сайта" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+    </div>
+</div>
+
+<div class="edit-panel" id="editPanel" role="dialog" aria-label="Редактирование">
+    <div class="edit-panel-header">
+        <h3><span id="editTitle">Редактирование</span><span class="key-badge" id="editKey"></span></h3>
+        <button class="edit-panel-close" id="closePanelBtn" aria-label="Закрыть">✕</button>
+    </div>
+    <div id="editPanelContent"></div>
+    <div class="edit-panel-actions">
+        <button class="toolbar-btn btn-secondary" id="cancelBtn">Отмена</button>
+        <button class="toolbar-btn primary" id="applyBtn">Применить</button>
+    </div>
+</div>
+
+<div class="status-bar" id="statusBar" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+if (typeof CMS_CONFIG === 'undefined') {
+    document.body.innerHTML = '<p style="padding:40px;color:#ff4444;">Не найден config.js (CMS_CONFIG). Проверьте, что файл лежит рядом с этой страницей.</p>';
+    throw new Error('CMS_CONFIG is not defined');
+}
+
+const LINK_COLORS = {
+    inherit: null,
+    brown: '#8B4513',
+    lightbrown: '#CD853F'
+};
+
+const $ = id => document.getElementById(id);
+let token = localStorage.getItem('gh_token');
+let pending = {};
+let editKind = null, editKey = null, editImagePath = null, pendingImg = null, statusTimer = null;
+let currentFile = localStorage.getItem('cms_currentFile') || 'index.html';
+let viewModeUrl = null;
+let siteBaseUrl = '';
+let repoDeployId = null;
+let deployPollGen = 0;
+const API = `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
+
+$('projectNameHeader').textContent = CMS_CONFIG.projectName || 'Редактор';
+$('repoNameHeader').textContent = `· ${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
+
+function saveCurrentFile() {
+    try { localStorage.setItem('cms_currentFile', currentFile); } catch {}
+}
+
+try {
+    const loc = window.location;
+    const pathParts = loc.pathname.split('/').filter(Boolean);
+    if (pathParts.length > 1) {
+        pathParts.pop();
+        siteBaseUrl = loc.origin + '/' + pathParts.join('/') + '/';
+    } else {
+        siteBaseUrl = loc.origin + '/';
+    }
+} catch {
+    siteBaseUrl = window.location.origin + '/';
+}
+
+function updatePageIndicator() {
+    const el = $('currentPageIndicator');
+    const box = $('pageIndicatorBox');
+    if (!el) return;
+    if (viewModeUrl) {
+        el.textContent = 'просмотр: ' + viewModeUrl.replace(/^https?:\/\//, '');
+        if (box) { box.classList.add('viewmode'); box.title = 'Режим просмотра (без редактирования).'; }
+    } else {
+        el.textContent = currentFile;
+        if (box) { box.classList.remove('viewmode'); box.title = 'Текущая страница (сохраняется при F5)'; }
+    }
+}
+
+function newDeployId() {
+    return 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function readDeployId(html) {
+    const m = html.match(/<meta\s+name=["']cms-deploy-id["']\s+content=["']([^"']+)["']/i);
+    return m ? m[1] : null;
+}
+
+function stampDeployId(html, id) {
+    const tag = `<meta name="cms-deploy-id" content="${id}">`;
+    if (/<meta\s+name=["']cms-deploy-id["']/i.test(html)) {
+        return html.replace(/<meta\s+name=["']cms-deploy-id["'][^>]*>/i, tag);
+    }
+    return html.replace(/<head(\s[^>]*)?>|<head>/i, m => m + '\n' + tag);
+}
+
+function setDeployBadge(state, html) {
+    const b = $('deployBadge');
+    if (!b) return;
+    if (state === 'idle') { b.className = 'deploy-badge'; b.style.display = 'none'; b.innerHTML = ''; return; }
+    b.className = 'deploy-badge ' + state;
+    b.style.display = 'inline-flex';
+    b.innerHTML = html;
+}
+
+async function fetchLiveDeployId() {
+    const url = siteBaseUrl + currentFile;
+    const sep = url.includes('?') ? '&' : '?';
+    const res = await fetch(url + sep + 'cb=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    return readDeployId(text);
+}
+
+async function verifyDeploy(expectedId, singleCheck) {
+    const gen = ++deployPollGen;
+    if (!expectedId) { setDeployBadge('unknown', '<i class="fas fa-info-circle"></i> Нет метки'); return; }
+    try {
+        const live = await fetchLiveDeployId();
+        if (gen !== deployPollGen) return;
+        if (live === expectedId) {
+            setDeployBadge('live', '<i class="fas fa-check-circle"></i> Сайт обновлён');
+            return;
+        }
+        setDeployBadge('pending', '<i class="fas fa-spinner fa-spin"></i> Деплой...');
+        if (singleCheck) return;
+        for (let i = 0; i < 30; i++) {
+            await new Promise(r => setTimeout(r, 4000));
+            if (gen !== deployPollGen) return;
+            const live2 = await fetchLiveDeployId();
+            if (gen !== deployPollGen) return;
+            if (live2 === expectedId) {
+                setDeployBadge('live', '<i class="fas fa-check-circle"></i> Сайт обновлён');
+                showStatus('✓ GitHub Pages задеплоил изменения — сайт обновлён!', 'success');
+                return;
+            }
+        }
+        setDeployBadge('pending', '<i class="fas fa-clock"></i> Долгий деплой');
+    } catch (e) {
+        if (gen !== deployPollGen) return;
+        setDeployBadge('unknown', '<i class="fas fa-question-circle"></i> Не проверить');
+    }
+}
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const encPath = p => p.split('/').map(encodeURIComponent).join('/');
+
+const b64d = b => {
+    try { return new TextDecoder().decode(Uint8Array.from(atob(b), c => c.charCodeAt(0))); }
+    catch (e) { return atob(b); }
+};
+
+const b64e = s => {
+    const bytes = new TextEncoder().encode(s);
+    let result = '';
+    for (let i = 0; i < bytes.length; i += 8192) result += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    return btoa(result);
+};
+
+const keepWs = (old, nv) => old.match(/^\s*/)[0] + nv.trim() + old.match(/\s*$/)[0];
+
+function showStatus(msg, type = 'success') {
+    const bar = $('statusBar');
+    clearTimeout(statusTimer);
+    bar.textContent = msg;
+    bar.className = 'status-bar show ' + type;
+    statusTimer = setTimeout(() => bar.classList.remove('show'), 4500);
+}
+
+function markUnsaved() {
+    $('unsavedBadge').classList.toggle('show', Object.keys(pending).length > 0);
+}
+
+async function gh(url, opts = {}) {
+    const res = await fetch(url, {
+        ...opts, cache: 'no-store',
+        headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', ...(opts.headers || {}) }
+    });
+    if (!res.ok) {
+        const raw = await res.text();
+        let msg = raw;
+        try { msg = (JSON.parse(raw)).message || raw; } catch {}
+        const err = new Error(`HTTP ${res.status}: ${msg}`);
+        err.status = res.status; err.body = msg;
+        throw err;
+    }
+    return res;
+}
+
+async function getFile(path) {
+    const url = `${API}/contents/${encPath(path)}?ref=${encodeURIComponent(CMS_CONFIG.branch)}`;
+    const d = await (await gh(url)).json();
+    let text;
+    if (d.encoding === 'base64' && d.content) text = b64d(d.content);
+    else text = await (await gh(url, { headers: { 'Accept': 'application/vnd.github.raw+json' } })).text();
+    return { text, sha: d.sha };
+}
+
+async function getSha(path) {
+    try { return (await (await gh(`${API}/contents/${encPath(path)}?ref=${encodeURIComponent(CMS_CONFIG.branch)}`)).json()).sha; }
+    catch (e) { if (e.status === 404) return null; throw e; }
+}
+
+async function putFile(path, b64, sha, message) {
+    const body = { message: message || `Обновление ${path}`, content: b64, branch: CMS_CONFIG.branch };
+    if (sha) body.sha = sha;
+    return (await gh(`${API}/contents/${encPath(path)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    })).json();
+}
+
+function interpretError(status, body = '') {
+    const b = String(body);
+    if (status === 401) return { title: 'Токен недействителен или истёк', fix: 'Создайте новый токен и войдите заново.' };
+    if (status === 403 || status === 429) {
+        if (/rate limit/i.test(b)) return { title: 'Превышен лимит запросов GitHub API', fix: 'Подождите минуту и повторите.' };
+        if (/scope|permission/i.test(b)) return { title: 'У токена нет нужных прав', fix: 'Создайте НОВЫЙ токен с правами Contents: Read and write на этот репозиторий.' };
+        return { title: 'Доступ запрещён', fix: 'Проверьте, что токен выдан на этот репозиторий и имеет право записи.' };
+    }
+    if (status === 404) return { title: 'Репозиторий или файл не найден', fix: `Проверьте имя файла и ветку "${CMS_CONFIG.branch}".` };
+    if (status === 409) return { title: 'Конфликт версий (файл был изменён)', fix: 'Кто-то изменил файл в репозитории. Нажмите "Обновить" и примените правки заново.' };
+    if (status === 422) return { title: 'Ошибка валидации', fix: 'Файл уже существует или данные некорректны. Попробуйте "Переподготовить".' };
+    return { title: 'Ошибка запроса', fix: 'Проверьте интернет-соединение и повторите. Если не помогает — создайте новый токен.' };
+}
+
+function showErrorDetails(title, status, body, fix) {
+    $('errorDetails').innerHTML = `<div class="error-details">
+        <div class="err-title"><i class="fas fa-exclamation-triangle" style="color: #ff4444;"></i> ${esc(title)}</div>
+        <div class="err-status">Код: ${esc(status)}</div>
+        <div style="color: #888; font-size: 12px; margin-bottom: 8px;">${esc(body)}</div>
+        <div class="err-fix"><i class="fas fa-check-circle"></i> ${esc(fix)}</div>
+    </div>`;
+}
+
+async function checkToken() {
+    const box = $('tokenInfo');
+    box.textContent = 'Проверка токена...';
+    $('errorDetails').innerHTML = '';
+    try {
+        const user = await (await gh('https://api.github.com/user')).json();
+        const repo = await (await gh(API)).json();
+        let hasIndex = true;
+        try { await gh(`${API}/contents/index.html?ref=${encodeURIComponent(CMS_CONFIG.branch)}`); } catch { hasIndex = false; }
+        const canPush = repo.permissions ? !!repo.permissions.push : null;
+        box.innerHTML = `
+            <div class="token-info"><span class="label"><i class="fas fa-check-circle" style="color: #00cc66;"></i> Пользователь:</span> ${esc(user.login)}</div>
+            <div class="token-info" style="margin-top: 8px;"><span class="label"><i class="fas fa-check-circle" style="color: #00cc66;"></i> Репозиторий:</span> ${esc(repo.full_name)} (${repo.private ? 'приватный' : 'публичный'})</div>
+            <div class="token-info" style="margin-top: 8px;"><span class="label"><i class="fas fa-${canPush === false ? 'times-circle' : 'check-circle'}" style="color: ${canPush === false ? '#ff4444' : '#00cc66'};"></i> Запись в репозиторий:</span> ${canPush === null ? 'нет данных' : canPush ? 'есть' : 'НЕТ — сохранение не удастся'}</div>
+            <div class="token-info" style="margin-top: 8px;"><span class="label"><i class="fas fa-${hasIndex ? 'check-circle' : 'exclamation-circle'}" style="color: ${hasIndex ? '#00cc66' : '#ff9900'};"></i> index.html в ветке ${esc(CMS_CONFIG.branch)}:</span> ${hasIndex ? 'найден' : 'НЕ НАЙДЕН'}</div>
+        `;
+        if (canPush === false) showErrorDetails('Нет прав записи', 'WARNING', '', 'Выдайте токену право Contents: Read and write на этот репозиторий.');
+        else if (!hasIndex) showErrorDetails('Файл index.html не найден', '404', `Ветка "${CMS_CONFIG.branch}" или файл не существует`, 'Создайте index.html в корне репозитория или проверьте ветку в config.js.');
+        const ok = hasIndex && canPush !== false;
+        showStatus(ok ? 'Токен валиден' : 'Есть проблемы — см. подробности', ok ? 'success' : 'error');
+        return ok;
+    } catch (e) {
+        const i = interpretError(e.status, e.body);
+        box.innerHTML = `<div class="token-info"><span class="label"><i class="fas fa-times-circle" style="color: #ff4444;"></i> Ошибка:</span> ${esc(e.message)}</div>`;
+        showErrorDetails(i.title, e.status || 'сеть', e.body || e.message, i.fix);
+        showStatus('✗ ' + i.title, 'error');
+        return false;
+    }
+}
+
+async function login() {
+    const t = $('tokenInput').value.trim();
+    if (!t) return;
+    const btn = $('loginBtn');
+    btn.disabled = true; btn.textContent = 'Проверка...';
+    token = t;
+    try {
+        await gh('https://api.github.com/user');
+        localStorage.setItem('gh_token', t);
+        enterApp();
+    } catch (e) {
+        token = null;
+        const i = interpretError(e.status, e.body);
+        $('loginError').innerHTML = `<strong>${esc(i.title)}</strong><br><small>${esc(i.fix)}</small>`;
+        $('loginError').classList.add('show');
+        btn.disabled = false; btn.textContent = 'Войти';
+    }
+}
+
+$('loginBtn').addEventListener('click', login);
+$('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+async function enterApp() {
+    $('loginScreen').style.display = 'none';
+    $('editorApp').classList.add('active');
+    try { await getFile(currentFile); } catch (e) {
+        if (e.status === 404 && currentFile !== 'index.html') {
+            showStatus(`⚠ Файл "${currentFile}" не найден — переключаемся на index.html`, 'info');
+            currentFile = 'index.html'; saveCurrentFile();
+        }
+    }
+    updatePageIndicator();
+    try {
+        const f = await getFile(currentFile);
+        if (f.text.includes('data-edit="')) showEditor();
+        else { showSetup(); await checkToken(); }
+    } catch (e) {
+        showSetup();
+        if (e.status === 404) showErrorDetails('Файл не найден', 404, `В репозитории ${CMS_CONFIG.owner}/${CMS_CONFIG.repo} ветка ${CMS_CONFIG.branch}`, 'Проверьте имя файла.');
+        else if (e.status === 401 || e.status === 403) await checkToken();
+        else { const i = interpretError(e.status, e.body); showErrorDetails(i.title, e.status || 'unknown', e.body || e.message, i.fix); }
+    }
+}
+
+if (token) enterApp();
+
+function logout() {
+    if (Object.keys(pending).length && !confirm('Есть несохранённые изменения. Выйти?')) return;
+    localStorage.removeItem('gh_token');
+    localStorage.removeItem('cms_currentFile');
+    location.reload();
+}
+
+function showSetup() {
+    $('setupScreen').classList.add('active');
+    $('iframeWrapper').style.display = 'none';
+    $('hintBanner').style.display = 'none';
+    $('prepareBtn').disabled = false;
+    $('prepareBtn').innerHTML = '<i class="fas fa-download"></i> Подготовить страницу';
+}
+
+function showEditor() {
+    $('setupScreen').classList.remove('active');
+    $('iframeWrapper').style.display = 'block';
+    $('hintBanner').style.display = 'block';
+    loadSite();
+}
+
+async function loadSite() {
+    viewModeUrl = null;
+    updatePageIndicator();
+    const ifr = $('siteIframe');
+    const loader = $('iframeLoader');
+    const status = $('loaderStatus');
+    loader.classList.remove('hidden');
+    status.textContent = 'Загрузка ' + currentFile + ' из GitHub...';
+    try {
+        const f = await getFile(currentFile);
+        status.textContent = 'Подготовка превью...';
+        repoDeployId = readDeployId(f.text);
+        let html = f.text;
+        if (!/<base\s/i.test(html)) {
+            html = html.replace(/<head(\s[^>]*)?>|<head>/i, (match) => match + '\n<base href="' + esc(siteBaseUrl) + '">');
+        }
+        ifr.srcdoc = html;
+        ifr.onload = () => {
+            hookIframe();
+            loader.classList.add('hidden');
+            verifyDeploy(repoDeployId, true);
+        };
+    } catch (e) {
+        status.textContent = 'Ошибка: ' + e.message;
+        setTimeout(() => {
+            ifr.src = `../${currentFile}?t=${Date.now()}`;
+            ifr.onload = () => { hookIframe(); loader.classList.add('hidden'); };
+        }, 1000);
+    }
+}
+
+function reloadPreview() {
+    if (Object.keys(pending).length && !confirm('Несохранённые правки в превью пропадут. Обновить?')) return;
+    loadSite();
+    showStatus('Обновляем превью...', 'info');
+}
+
+function isInternalPage(href) {
+    if (!href) return false;
+    const clean = href.split(/[?#]/)[0];
+    if (/^(tel:|mailto:|javascript:|data:)/i.test(clean)) return false;
+    if (clean.startsWith('#')) return false;
+    if (!/^(https?:|\/\/)/i.test(clean)) return /\.html?$/i.test(clean);
+    try {
+        const url = new URL(clean.startsWith('//') ? 'https:' + clean : clean);
+        const base = new URL(siteBaseUrl);
+        if (url.hostname === base.hostname || url.hostname.endsWith('.' + base.hostname) || base.hostname.endsWith('.' + url.hostname)) {
+            return /\.html?$/i.test(url.pathname);
+        }
+    } catch {}
+    return false;
+}
+
+function normalizePagePath(href) {
+    let p = href.split(/[?#]/)[0];
+    if (/^(https?:|\/\/)/i.test(p)) {
+        try { p = new URL(p.startsWith('//') ? 'https:' + p : p).pathname; } catch {}
+    }
+    try { p = decodeURIComponent(p); } catch {}
+    p = p.replace(/^(\.\/)+/, '').replace(/^\/+/, '');
+    return p;
+}
+
+async function prepareCurrentFile(logContainer = null) {
+    const btn = $('prepareBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Подготовка...'; }
+    const li = (msg, type = '') => {
+        if (logContainer) {
+            const div = document.createElement('div');
+            div.className = 'log-item ' + type;
+            div.textContent = (type === 'done' ? '✓ ' : type === 'error' ? '✗ ' : '→ ') + msg;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+    };
+    try {
+        li('Загрузка ' + currentFile + ' из репозитория...', 'working');
+        const f = await getFile(currentFile);
+        if (!f.text.trim()) throw new Error(currentFile + ' пуст или не прочитан');
+        li(`${currentFile} загружен (${(f.text.length / 1024).toFixed(1)} КБ)`, 'done');
+        if (f.text.includes('data-edit="') || f.text.includes('data-img=')) {
+            li('Обнаружены старые метки — очищаем...', 'working');
+            const cleaned = cleanHtmlMarks(f.text);
+            f.text = cleaned.html;
+            li(`Удалено: ${cleaned.removedEdit} text-меток и ${cleaned.removedImg} img-меток`, 'done');
+        }
+        li('Анализ контента и расстановка меток...', 'working');
+        const r = processHtml(f.text);
+        li(`Найдено ${r.textCount} текстов и ${r.imgCount} картинок`, 'done');
+        li('Сохранение подготовленного ' + currentFile + '...', 'working');
+        const deployId = newDeployId();
+        const stamped = stampDeployId(r.html, deployId);
+        await putFile(currentFile, b64e(stamped), f.sha, `Подготовка ${currentFile} к редактированию`);
+        repoDeployId = deployId;
+        li(currentFile + ' обновлён в репозитории', 'done');
+        li('Подготовка завершена!', 'done');
+        return true;
+    } catch (e) {
+        li('Ошибка: ' + e.message, 'error');
+        const i = interpretError(e.status, e.body);
+        showErrorDetails(i.title, e.status || 'ошибка', e.body || e.message, i.fix);
+        showStatus(`✗ ${i.title}`, 'error');
+        return false;
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-download"></i> Подготовить страницу'; }
+    }
+}
+
+async function prepareSite() {
+    const log = $('progressLog');
+    log.style.display = 'block'; log.innerHTML = '';
+    $('errorDetails').innerHTML = '';
+    const ok = await prepareCurrentFile(log);
+    if (ok) {
+        setTimeout(() => { showStatus('Страница подготовлена! Открываем редактор...'); setTimeout(showEditor, 500); }, 300);
+    }
+}
+
+async function navigateTo(href) {
+    const cleanPath = normalizePagePath(href);
+    if (!cleanPath) return;
+    if (Object.keys(pending).length) {
+        if (!confirm('Есть несохранённые правки. При переходе они будут потеряны. Продолжить?')) return;
+        pending = {}; markUnsaved();
+    }
+    currentFile = cleanPath;
+    saveCurrentFile();
+    viewModeUrl = null;
+    updatePageIndicator();
+    showSetup();
+    $('setupTitle').textContent = 'Подготовка ' + cleanPath;
+    $('errorDetails').innerHTML = '';
+    const log = $('progressLog');
+    log.style.display = 'block'; log.innerHTML = '';
+    showStatus('Подготавливаю страницу ' + cleanPath + '...', 'info');
+    const ok = await prepareCurrentFile(log);
+    if (ok) {
+        showEditor();
+        showStatus('✓ Страница ' + cleanPath + ' готова к редактированию!', 'success');
+    }
+}
+
+function openExternalInIframe(url) {
+    viewModeUrl = url;
+    updatePageIndicator();
+    const ifr = $('siteIframe');
+    $('iframeLoader').classList.remove('hidden');
+    $('loaderStatus').textContent = 'Открываю ссылку в режиме просмотра...';
+    ifr.removeAttribute('srcdoc');
+    ifr.onload = () => { $('iframeLoader').classList.add('hidden'); };
+    ifr.src = url;
+    showStatus('Режим просмотра: редактирование недоступно.', 'info');
+}
+
+function goHome() {
+    if (viewModeUrl) { loadSite(); return; }
+    if (currentFile === 'index.html') { reloadPreview(); return; }
+    navigateTo('index.html');
+}
+
+function openLiveSite() {
+    window.open(viewModeUrl ? viewModeUrl : (siteBaseUrl + currentFile), '_blank');
+}
+
+function hookIframe() {
+    let d;
+    try { d = $('siteIframe').contentDocument; } catch { return; }
+    if (!d || !d.head) return;
+    const st = d.createElement('style');
+    st.textContent = `[data-edit]:hover, [data-img]:hover { outline: 2px dashed #F40009; outline-offset: 2px; cursor: pointer; }`;
+    d.head.appendChild(st);
+    d.addEventListener('click', ev => {
+        const isAlt = ev.altKey;
+        const isModifier = ev.ctrlKey || ev.metaKey || ev.button === 1;
+        if (isAlt) {
+            const linkEl = ev.target.closest && ev.target.closest('a[href]');
+            if (linkEl) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const href = (linkEl.getAttribute('href') || '').trim();
+                if (!href) return;
+                if (/^(tel:|mailto:)/i.test(href)) { window.open(href, '_blank'); return; }
+                if (href.startsWith('#')) {
+                    const id = href.slice(1);
+                    const target = id ? (d.getElementById(id) || d.querySelector(`[name="${CSS.escape(id)}"]`)) : null;
+                    if (target) target.scrollIntoView({ behavior: 'smooth' });
+                    return;
+                }
+                if (isInternalPage(href)) { navigateTo(href); return; }
+                let abs = href;
+                if (/^https?:\/\//i.test(href)) abs = href;
+                else if (href.startsWith('//')) abs = 'https:' + href;
+                else { try { abs = new URL(href, siteBaseUrl).href; } catch { abs = href; } }
+                openExternalInIframe(abs);
+                return;
+            }
+            ev.preventDefault();
+            return;
+        }
+        if (isModifier) {
+            const linkEl = ev.target.closest && ev.target.closest('a[href]');
+            if (linkEl) {
+                ev.preventDefault(); ev.stopPropagation();
+                window.open(linkEl.getAttribute('href'), '_blank', 'noopener');
+                return;
+            }
+        }
+        const textEl = ev.target.closest && ev.target.closest('[data-edit]');
+        if (textEl) { ev.preventDefault(); ev.stopPropagation(); openText(textEl.getAttribute('data-edit'), textEl.textContent); return; }
+        const imgEl = ev.target.closest && ev.target.closest('[data-img]');
+        if (imgEl) {
+            ev.preventDefault(); ev.stopPropagation();
+            const path = imgEl.getAttribute('data-img');
+            const imgId = imgEl.getAttribute('data-img-id') || '';
+            const actualImg = imgEl.tagName === 'IMG' ? imgEl : imgEl.querySelector('img');
+            openImage(path, actualImg ? (actualImg.currentSrc || actualImg.src) : '', imgId);
+            return;
+        }
+        const linkEl = ev.target.closest && ev.target.closest('a[href]');
+        if (linkEl) ev.preventDefault();
+    }, true);
+    d.addEventListener('keydown', ev => { if (ev.key === 'Escape') window.parent.postMessage({ type: 'CLOSE_PANEL' }, '*'); });
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('editPanel').classList.contains('active')) closePanel(); });
+window.addEventListener('message', ev => { if (ev.data && ev.data.type === 'CLOSE_PANEL') closePanel(); });
+
+function syncHref(el, newValue) {
+    const parentLink = el.closest('a[href^="tel:"], a[href^="mailto:"], a[href*="t.me"], a[href*="wa.me"], a[href*="vk.com"], a[href*="instagram.com"]');
+    if (!parentLink || parentLink.hasAttribute('data-cms-link')) return;
+    const href = parentLink.getAttribute('href') || '';
+    if (href.startsWith('tel:')) {
+        const clean = newValue.replace(/[^\d+]/g, '');
+        if (clean.length >= 7) parentLink.setAttribute('href', 'tel:' + clean);
+    } else if (href.startsWith('mailto:')) {
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newValue.trim())) parentLink.setAttribute('href', 'mailto:' + newValue.trim());
+    } else if (href.includes('t.me/') || href.includes('telegram.me/')) {
+        const u = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//, '');
+        if (u && /^[a-zA-Z0-9_]{3,}$/.test(u)) parentLink.setAttribute('href', 'https://t.me/' + u);
+    } else if (href.includes('wa.me/')) {
+        const clean = newValue.replace(/[^\d]/g, '');
+        if (clean.length >= 7) parentLink.setAttribute('href', 'https://wa.me/' + clean);
+    } else if (href.includes('vk.com/')) {
+        const u = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/vk\.com\//, '');
+        if (u && /^[a-zA-Z0-9_.]+$/.test(u)) parentLink.setAttribute('href', 'https://vk.com/' + u);
+    } else if (href.includes('instagram.com/')) {
+        const u = newValue.trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '');
+        if (u && /^[a-zA-Z0-9_.]+$/.test(u)) parentLink.setAttribute('href', 'https://instagram.com/' + u);
+    }
+}
+
+function findImgTargets(doc, key, path) {
+    if (!doc) return [];
+    if (key && /^img_\d+$/.test(key)) {
+        const el = doc.querySelector(`[data-img-id="${key}"]`);
+        return el ? [el] : [];
+    }
+    const lookupPath = path || key;
+    if (!lookupPath) return [];
+    return Array.from(doc.querySelectorAll(`[data-img="${lookupPath}"]`));
+}
+
+function readTextLink(key) {
+    let d = null;
+    try { d = $('siteIframe').contentDocument; } catch {}
+    if (!d) return { url: '', keepColor: false, linkColor: 'inherit', linkTarget: '_blank' };
+    const el = d.querySelector(`[data-edit="${CSS.escape(key)}"]`);
+    if (!el) return { url: '', keepColor: false, linkColor: 'inherit', linkTarget: '_blank' };
+    const link = el.closest('a[data-cms-link]');
+    if (!link) return { url: '', keepColor: false, linkColor: 'inherit', linkTarget: '_blank' };
+    const storedColor = link.getAttribute('data-link-color') || 'inherit';
+    const target = link.getAttribute('target') || '_blank';
+    return {
+        url: link.getAttribute('href') || '',
+        keepColor: link.hasAttribute('data-keep-color'),
+        linkColor: LINK_COLORS[storedColor] !== undefined ? storedColor : 'inherit',
+        linkTarget: target === '_self' ? '_self' : '_blank'
+    };
+}
+
+function readImageLink(key, path) {
+    let d = null;
+    try { d = $('siteIframe').contentDocument; } catch {}
+    if (!d) return '';
+    const targets = findImgTargets(d, key, path);
+    if (!targets.length) return '';
+    const target = targets[0];
+    let linkEl = null;
+    if (target.tagName === 'A') linkEl = target;
+    else if (target.closest) linkEl = target.closest('a');
+    if (!linkEl) return '';
+    const href = linkEl.getAttribute('href') || '';
+    if (linkEl.hasAttribute('data-cms-link') || (!href.startsWith('tel:') && !href.startsWith('mailto:') && !href.startsWith('#'))) {
+        return href;
+    }
+    return '';
+}
+
+function applyLinkToText(doc, el, url, keepColor, linkColor, linkTarget) {
+    if (!el) return;
+    let link = el.closest ? el.closest('a') : null;
+    if (url && url.trim()) {
+        url = url.trim();
+        if (!link) {
+            link = doc.createElement('a');
+            el.parentNode.insertBefore(link, el);
+            link.appendChild(el);
+        }
+        link.setAttribute('data-cms-link', '1');
+        link.setAttribute('href', url);
+        link.setAttribute('target', linkTarget === '_self' ? '_self' : '_blank');
+        if (linkTarget === '_blank') link.setAttribute('rel', 'noopener');
+        else link.removeAttribute('rel');
+        const colorKey = linkColor && LINK_COLORS[linkColor] !== undefined ? linkColor : 'inherit';
+        link.setAttribute('data-link-color', colorKey);
+        if (colorKey === 'inherit' || keepColor) {
+            link.style.color = 'inherit';
+            link.style.textDecoration = 'none';
+            if (keepColor) link.setAttribute('data-keep-color', '1');
+            else link.removeAttribute('data-keep-color');
+        } else {
+            link.removeAttribute('data-keep-color');
+            link.style.color = LINK_COLORS[colorKey];
+            link.style.textDecoration = 'underline';
+        }
+    } else {
+        if (link && link.hasAttribute('data-cms-link')) {
+            link.parentNode.insertBefore(el, link);
+            if (link.textContent.trim() === '') link.parentNode.removeChild(link);
+            else {
+                link.removeAttribute('data-cms-link');
+                link.removeAttribute('data-keep-color');
+                link.removeAttribute('data-link-color');
+                link.removeAttribute('href');
+                link.removeAttribute('target');
+                link.removeAttribute('rel');
+                link.style.color = '';
+                link.style.textDecoration = '';
+            }
+        }
+    }
+}
+
+function applyLinkToImage(doc, target, url) {
+    if (!target || !url || !url.trim()) return;
+    url = url.trim();
+    let link;
+    if (target.tagName === 'A') link = target;
+    else if (target.closest && target.closest('a')) link = target.closest('a');
+    else {
+        link = doc.createElement('a');
+        target.parentNode.insertBefore(link, target);
+        link.appendChild(target);
+    }
+    link.setAttribute('data-cms-link', '1');
+    link.setAttribute('href', url);
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener');
+}
+
+function cleanHtmlMarks(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const beforeEdit = doc.querySelectorAll('[data-edit]').length;
+    const beforeImg = doc.querySelectorAll('[data-img]').length;
+    let pass = 0;
+    while (doc.querySelector('[data-edit]') && pass < 10) {
+        doc.querySelectorAll('[data-edit]').forEach(el => {
+            const parent = el.parentNode;
+            if (!parent) return;
+            while (el.firstChild) parent.insertBefore(el.firstChild, el);
+            parent.removeChild(el);
+        });
+        pass++;
+    }
+    doc.querySelectorAll('[data-img]').forEach(el => {
+        el.removeAttribute('data-img');
+        el.removeAttribute('data-img-id');
+    });
+    doc.querySelectorAll('base[href]').forEach(el => el.parentNode.removeChild(el));
+    doc.body.normalize();
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+    const emptyNodes = [];
+    let node;
+    while (node = walker.nextNode()) if (node.textContent.trim() === '') emptyNodes.push(node);
+    emptyNodes.forEach(n => n.parentNode?.removeChild(n));
+    return { html: '<!DOCTYPE html>\n' + doc.documentElement.outerHTML, removedEdit: beforeEdit, removedImg: beforeImg };
+}
+
+function prettifyHtml(html) {
+    const doctypeMatch = html.match(/^<!DOCTYPE[^>]*>\s*/i);
+    const doctype = doctypeMatch ? doctypeMatch[0].trim() : '';
+    let rest = doctypeMatch ? html.slice(doctypeMatch[0].length) : html;
+    const tokens = [];
+    let current = '';
+    let inTag = false;
+    for (let i = 0; i < rest.length; i++) {
+        const ch = rest[i];
+        if (ch === '<' && !inTag) {
+            if (current) tokens.push({ type: 'text', value: current });
+            current = '<'; inTag = true;
+        } else if (ch === '>' && inTag) {
+            current += '>';
+            tokens.push({ type: 'tag', value: current });
+            current = ''; inTag = false;
+        } else current += ch;
+    }
+    if (current) tokens.push({ type: 'text', value: current });
+    const BLOCK = new Set(['html','head','body','section','div','p','h1','h2','h3','h4','h5','h6','ul','ol','li','dl','dt','dd','header','footer','nav','main','article','aside','figure','figcaption','blockquote','table','thead','tbody','tfoot','tr','td','th','form','fieldset','legend','details','summary','dialog','iframe','pre']);
+    const VOID = new Set(['img','br','hr','input','meta','link','source','area','col','embed','wbr','track']);
+    const RAW = new Set(['script','style','textarea']);
+    const IND = '    ';
+    let result = '', indent = 0, inRawTag = null;
+    for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (inRawTag) {
+            result += t.value;
+            if (t.type === 'tag') {
+                const closeMatch = t.value.match(/^<\/([a-zA-Z0-9]+)/);
+                if (closeMatch && closeMatch[1].toLowerCase() === inRawTag) { inRawTag = null; result += '\n'; }
+            }
+            continue;
+        }
+        if (t.type === 'tag') {
+            const tagMatch = t.value.match(/^<\/?([a-zA-Z0-9]+)/);
+            if (!tagMatch) { result += t.value; continue; }
+            const tagName = tagMatch[1].toLowerCase();
+            const isClosing = t.value.startsWith('</');
+            const isSelfClosing = VOID.has(tagName) || t.value.trim().endsWith('/>');
+            if (RAW.has(tagName) && !isClosing) { inRawTag = tagName; result += '\n' + IND.repeat(indent) + t.value.trim(); continue; }
+            if (isSelfClosing) { result += '\n' + IND.repeat(indent) + t.value.trim(); continue; }
+            if (isClosing) { indent = Math.max(0, indent - 1); result += '\n' + IND.repeat(indent) + t.value.trim(); continue; }
+            result += '\n' + IND.repeat(indent) + t.value.trim();
+            if (BLOCK.has(tagName)) indent++;
+        } else {
+            const trimmed = t.value.trim();
+            if (!trimmed) continue;
+            if (result.endsWith('\n') || result === '') result += IND.repeat(indent) + trimmed;
+            else result += trimmed;
+        }
+    }
+    let formatted = result.trim().replace(/\n{3,}/g, '\n\n');
+    return (doctype ? doctype + '\n' : '') + formatted;
+}
+
+function processHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    let textCounter = 0;
+    const SKIP_TAGS = new Set(['script', 'style', 'title', 'meta', 'noscript', 'input', 'textarea', 'select', 'option', 'button', 'svg', 'path', 'rect', 'circle', 'line', 'polygon', 'polyline', 'head', 'link', 'form']);
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            if (SKIP_TAGS.has(parent.tagName.toLowerCase())) return NodeFilter.FILTER_REJECT;
+            if (parent.hasAttribute('data-edit')) return NodeFilter.FILTER_REJECT;
+            const text = node.textContent;
+            if (!text || !text.trim()) return NodeFilter.FILTER_REJECT;
+            if (/[\wа-яА-ЯёЁ]/.test(text)) return NodeFilter.FILTER_ACCEPT;
+            return NodeFilter.FILTER_REJECT;
+        }
+    });
+    const nodesToProcess = [];
+    let node;
+    while (node = walker.nextNode()) nodesToProcess.push(node);
+    let textCount = 0;
+    nodesToProcess.forEach(textNode => {
+        const key = `auto_${++textCounter}`;
+        const span = doc.createElement('span');
+        span.setAttribute('data-edit', key);
+        span.textContent = textNode.textContent;
+        textNode.parentElement.replaceChild(span, textNode);
+        textCount++;
+    });
+    doc.querySelectorAll('a[href^="tel:"], a[href^="mailto:"]').forEach(el => {
+        if (el.hasAttribute('data-edit') || el.closest('form') || el.querySelector('[data-edit]')) return;
+        const text = el.textContent.trim();
+        if (!text) return;
+        const key = `auto_${++textCounter}`;
+        const span = doc.createElement('span');
+        span.setAttribute('data-edit', key);
+        span.textContent = text;
+        el.textContent = '';
+        el.appendChild(span);
+        textCount++;
+    });
+    doc.querySelectorAll('[data-editable]').forEach(el => {
+        if (el.hasAttribute('data-edit')) return;
+        const text = el.textContent.trim();
+        if (!text) return;
+        const key = `auto_${++textCounter}`;
+        if (el.children.length === 0) {
+            const span = doc.createElement('span');
+            span.setAttribute('data-edit', key);
+            span.textContent = text;
+            el.textContent = '';
+            el.appendChild(span);
+        } else el.setAttribute('data-edit', key);
+        el.removeAttribute('data-editable');
+        textCount++;
+    });
+    const extraSelectors = (CMS_CONFIG.extraEditableSelectors || []).join(', ');
+    if (extraSelectors) {
+        doc.querySelectorAll(extraSelectors).forEach(el => {
+            if (el.hasAttribute('data-edit') || el.closest('form')) return;
+            const text = el.textContent.trim();
+            if (!text) return;
+            const key = `auto_${++textCounter}`;
+            if (el.children.length === 0) {
+                const span = doc.createElement('span');
+                span.setAttribute('data-edit', key);
+                span.textContent = text;
+                el.textContent = '';
+                el.appendChild(span);
+            } else el.setAttribute('data-edit', key);
+            textCount++;
+        });
+    }
+    const CORE_IMAGE_WRAPPERS = [
+        '.img-wrapper', '.gallery-item', '.team-photo',
+        '.about-img-wrapper', '.hero-img-wrapper', '.product-image',
+        '.portfolio-card', '.space-card', '.portfolio-item'
+    ];
+    const userWrappers = (CMS_CONFIG.imageWrappers || []);
+    const wrapperSelector = [...CORE_IMAGE_WRAPPERS, ...userWrappers].join(', ');
+    let imgCount = 0, imgIdCounter = 0;
+    doc.querySelectorAll('img').forEach(img => {
+        if (img.hasAttribute('data-img')) return;
+        const src = img.getAttribute('src');
+        if (!src || /^(data:|blob:|https?:|\/\/)/i.test(src)) return;
+        let path = src.split(/[?#]/)[0];
+        try { path = decodeURIComponent(path); } catch {}
+        path = path.replace(/^(\.\/)+/, '').replace(/^\/+/, '');
+        if (!path || path.startsWith('../')) return;
+        let wrapper = wrapperSelector ? img.closest(wrapperSelector) : null;
+        if (wrapper && wrapper.hasAttribute('data-img')) return;
+        const imgId = 'img_' + (++imgIdCounter);
+        if (wrapper) {
+            wrapper.setAttribute('data-img', path);
+            wrapper.setAttribute('data-img-id', imgId);
+        } else {
+            img.setAttribute('data-img', path);
+            img.setAttribute('data-img-id', imgId);
+        }
+        imgCount++;
+    });
+    const rawHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+    return { html: prettifyHtml(rawHtml), textCount, imgCount };
+}
+
+async function cleanMarks() {
+    if (Object.keys(pending).length > 0) {
+        if (!confirm('У вас есть несохранённые правки. Они будут потеряны при очистке. Продолжить?')) return;
+        pending = {}; markUnsaved();
+    }
+    if (!confirm('Удалить ВСЕ метки редактирования (data-edit, data-img, data-img-id) из ' + currentFile + '?\n\nПравки текстов и ручные ссылки СОХРАНЯТСЯ.\nПосле очистки нужно снова нажать «Подготовить страницу».\n\nПродолжить?')) return;
+    const btn = $('cleanBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Очищаю...';
+    try {
+        showStatus('Загружаю ' + currentFile + '...', 'info');
+        const f = await getFile(currentFile);
+        if (!f.text.includes('data-edit="') && !f.text.includes('data-img=')) {
+            showStatus('Меток в файле нет — очищать нечего', 'info');
+            return;
+        }
+        showStatus('Удаляю метки...', 'info');
+        const result = cleanHtmlMarks(f.text);
+        const pretty = prettifyHtml(result.html);
+        const deployId = newDeployId();
+        const stamped = stampDeployId(pretty, deployId);
+        showStatus('Сохраняю очищенный файл...', 'info');
+        await putFile(currentFile, b64e(stamped), f.sha, `Очистка меток редактирования в ${currentFile}`);
+        repoDeployId = deployId;
+        showStatus(`✓ Очищено: ${result.removedEdit} text-меток и ${result.removedImg} img-меток.`, 'success');
+        setTimeout(() => { showSetup(); $('setupTitle').textContent = 'Страница очищена — готова к подготовке'; }, 1500);
+    } catch (e) {
+        const i = interpretError(e.status, e.body);
+        showStatus(`✗ Ошибка: ${i.title}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-broom"></i> Очистить метки';
+    }
+}
+
+function openPanel(title, key) {
+    $('editTitle').textContent = title;
+    $('editKey').textContent = key;
+    $('editPanel').classList.add('active');
+}
+
+function openText(key, value) {
+    editKind = 'text'; editKey = key;
+    openPanel('Редактирование текста', key);
+    const linkData = readTextLink(key);
+    $('editPanelContent').innerHTML = `
+        <textarea id="editTextArea" aria-label="Текст"></textarea>
+        <div class="link-section">
+            <label class="field-label" for="editLink"><i class="fas fa-link" style="color:#F40009;"></i> Ссылка при клике на текст (необязательно)</label>
+            <input type="url" id="editLink" placeholder="https://..." autocomplete="off">
+            <div class="link-hint">Оставьте поле пустым, чтобы убрать ссылку с текста.</div>
+        </div>
+        <div class="link-option">
+            <label class="field-label"><i class="fas fa-palette" style="color:#CD853F;"></i> Цвет ссылки</label>
+            <div class="option-group">
+                <label class="radio-label">
+                    <input type="radio" name="linkColor" value="inherit">
+                    <span class="color-preview inherit">Текущий</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="linkColor" value="brown">
+                    <span class="color-preview brown">Коричневый</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="linkColor" value="lightbrown">
+                    <span class="color-preview lightbrown">Светло-коричневый</span>
+                </label>
+            </div>
+        </div>
+        <div class="link-option">
+            <label class="field-label"><i class="fas fa-external-link-alt" style="color:#c9a961;"></i> Открывать ссылку</label>
+            <div class="option-group">
+                <label class="radio-label">
+                    <input type="radio" name="linkTarget" value="_blank">
+                    <span class="target-label">В новой вкладке</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="linkTarget" value="_self">
+                    <span class="target-label">В том же окне</span>
+                </label>
+            </div>
+        </div>
+    `;
+    const ta = $('editTextArea');
+    ta.value = pending['t:' + key] ? pending['t:' + key].value : value.trim();
+    $('editLink').value = linkData.url;
+    const colorRadio = document.querySelector(`input[name="linkColor"][value="${linkData.linkColor || 'inherit'}"]`);
+    if (colorRadio) colorRadio.checked = true;
+    else {
+        const fb = document.querySelector('input[name="linkColor"][value="inherit"]');
+        if (fb) fb.checked = true;
+    }
+    const targetRadio = document.querySelector(`input[name="linkTarget"][value="${linkData.linkTarget || '_blank'}"]`);
+    if (targetRadio) targetRadio.checked = true;
+    else {
+        const fb = document.querySelector('input[name="linkTarget"][value="_blank"]');
+        if (fb) fb.checked = true;
+    }
+    setTimeout(() => ta.focus(), 100);
+}
+
+function openImage(path, src, imgId) {
+    editKind = 'image';
+    editKey = imgId || path;
+    editImagePath = path;
+    pendingImg = null;
+    openPanel('Замена изображения', path);
+    $('editPanelContent').innerHTML = `
+        <div style="margin-bottom: 16px;">
+            <div style="color: #888; font-size: 13px; margin-bottom: 8px;">Текущее фото:</div>
+            <img id="curImg" alt="" style="max-width: 100%; max-height: 180px; border-radius: 8px;">
+        </div>
+        <label class="file-upload">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <div class="upload-text"><strong>Выберите новое изображение</strong><br><small>JPG, PNG, WebP, GIF. Максимум 2 МБ. Файл заменит ${esc(path)}.</small></div>
+            <input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp,image/gif">
+        </label>
+        <div id="imagePreview" style="margin-top: 12px;"></div>
+        <div class="link-section">
+            <label class="field-label" for="imgLink"><i class="fas fa-link" style="color:#F40009;"></i> Ссылка при клике на фото (необязательно)</label>
+            <input type="url" id="imgLink" placeholder="https://..." autocomplete="off">
+            <div class="link-hint">Куда переходить при клике по картинке.</div>
+        </div>
+    `;
+    if (src) $('curImg').src = src;
+    $('imgLink').value = readImageLink(editKey, path);
+    $('imageFileInput').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) return showStatus('Допустимы JPG, PNG, WebP, GIF', 'error');
+        if (file.size > 2 * 1024 * 1024) return showStatus('Файл слишком большой (максимум 2 МБ)', 'error');
+        const rd = new FileReader();
+        rd.onload = ev => {
+            pendingImg = ev.target.result;
+            $('imagePreview').innerHTML = `<div style="color: #00cc66; font-size: 13px;"><i class="fas fa-check-circle"></i> Файл: <strong>${esc(file.name)}</strong> (${(file.size / 1024).toFixed(0)} КБ)</div>`;
+        };
+        rd.readAsDataURL(file);
+    });
+}
+
+function applyEdit() {
+    let d = null;
+    try { d = $('siteIframe').contentDocument; } catch {}
+
+    if (editKind === 'text') {
+        const v = $('editTextArea').value;
+        const linkUrl = $('editLink').value.trim();
+        const colorEl = document.querySelector('input[name="linkColor"]:checked');
+        const targetEl = document.querySelector('input[name="linkTarget"]:checked');
+        const linkColor = colorEl ? colorEl.value : 'inherit';
+        const linkTarget = targetEl ? targetEl.value : '_blank';
+        const keepColor = linkColor === 'inherit';
+        pending['t:' + editKey] = {
+            type: 'text', value: v,
+            link: linkUrl, keepColor: keepColor,
+            linkColor: linkColor, linkTarget: linkTarget
+        };
+        if (d) {
+            const el = d.querySelector(`[data-edit="${CSS.escape(editKey)}"]`);
+            if (el) {
+                el.textContent = keepWs(el.textContent, v);
+                applyLinkToText(d, el, linkUrl, keepColor, linkColor, linkTarget);
+                if (!linkUrl) syncHref(el, v);
+            }
+        }
+        showStatus((linkUrl ? 'Изменения и ссылка применены.' : 'Изменения применены.') + ' Сохраните в GitHub.');
+    } else if (editKind === 'image') {
+        const imgLinkUrl = $('imgLink').value.trim();
+        if (!pendingImg && !imgLinkUrl) return showStatus('Выберите файл или укажите ссылку', 'error');
+        const path = editImagePath || editKey;
+        pending['i:' + editKey] = { type: 'image', data: pendingImg, path: path, key: editKey, link: imgLinkUrl };
+        if (d) {
+            const targets = findImgTargets(d, editKey, path);
+            targets.forEach(target => {
+                if (pendingImg) {
+                    const img = target.tagName === 'IMG' ? target : target.querySelector('img');
+                    if (img) { img.removeAttribute('srcset'); img.src = pendingImg; }
+                }
+                if (imgLinkUrl) applyLinkToImage(d, target, imgLinkUrl);
+            });
+        }
+        if (pendingImg && imgLinkUrl) showStatus('Фото и ссылка применены.');
+        else if (imgLinkUrl) showStatus('Ссылка на фото применена.');
+        else showStatus('Фото изменено.');
+    }
+    markUnsaved();
+    closePanel();
+}
+
+function closePanel() {
+    $('editPanel').classList.remove('active');
+    editKind = editKey = editImagePath = pendingImg = null;
+}
+
+async function saveAll() {
+    const keys = Object.keys(pending);
+    if (!keys.length) return showStatus('Нет изменений для сохранения', 'info');
+    const btn = $('saveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+    const done = [], failed = [];
+    try {
+        const texts = keys.filter(k => pending[k].type === 'text');
+        const images = keys.filter(k => pending[k].type === 'image');
+        const imagesWithData = images.filter(k => pending[k].data);
+        const imagesWithLinks = images.filter(k => pending[k].link);
+
+        if (texts.length || imagesWithLinks.length) {
+            const f = await getFile(currentFile);
+            const doc = new DOMParser().parseFromString(f.text, 'text/html');
+
+            for (const k of texts) {
+                const key = k.slice(2);
+                const el = doc.querySelector(`[data-edit="${CSS.escape(key)}"]`);
+                if (el) {
+                    el.textContent = pending[k].value;
+                    applyLinkToText(doc, el, pending[k].link || '', pending[k].keepColor || false, pending[k].linkColor || 'inherit', pending[k].linkTarget || '_blank');
+                    if (!pending[k].link) syncHref(el, pending[k].value);
+                    done.push(k);
+                } else failed.push(k);
+            }
+
+            for (const k of imagesWithLinks) {
+                const { path, link, key } = pending[k];
+                const targets = findImgTargets(doc, key || k.slice(2), path);
+                if (targets.length) targets.forEach(t => applyLinkToImage(doc, t, link));
+                else failed.push(k);
+            }
+
+            const rawHtml = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+            const deployId = newDeployId();
+            const stamped = stampDeployId(prettifyHtml(rawHtml), deployId);
+            await putFile(currentFile, b64e(stamped), f.sha, `Редактирование текстов и ссылок в ${currentFile}`);
+            repoDeployId = deployId;
+        }
+
+        for (const k of imagesWithData) {
+            const { path, data } = pending[k];
+            try {
+                await putFile(path, data.split(',')[1], await getSha(path), `Обновление изображения ${path}`);
+                if (!done.includes(k)) done.push(k);
+            } catch (e) { failed.push(k); }
+        }
+
+        imagesWithLinks.forEach(k => { if (!done.includes(k) && !failed.includes(k)) done.push(k); });
+
+        done.forEach(k => delete pending[k]);
+        markUnsaved();
+        if (failed.length) showStatus(`Сохранено: ${done.length}. Не сохранено: ${failed.length}.`, 'error');
+        else {
+            showStatus('Сохранено! Ждём деплой GitHub Pages...', 'success');
+            setDeployBadge('pending', '<i class="fas fa-spinner fa-spin"></i> Деплой...');
+            setTimeout(() => { loadSite(); verifyDeploy(repoDeployId, false); }, 500);
+        }
+    } catch (e) {
+        const i = interpretError(e.status, e.body);
+        showStatus(`✗ ${i.title}. ${i.fix}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Сохранить в GitHub';
+    }
+}
+
+async function resetSite() {
+    if (Object.keys(pending).length && !confirm('Есть несохранённые правки, они будут потеряны. Продолжить?')) return;
+    if (!confirm('Переподготовить страницу ' + currentFile + '? Метки будут обновлены.')) return;
+    pending = {}; markUnsaved();
+    showSetup();
+    $('setupTitle').textContent = 'Переподготовка ' + currentFile;
+    $('progressLog').style.display = 'none';
+    $('errorDetails').innerHTML = '';
+}
+
+$('checkBtn').addEventListener('click', checkToken);
+$('checkBtn2').addEventListener('click', checkToken);
+$('reloadBtn').addEventListener('click', reloadPreview);
+$('cleanBtn').addEventListener('click', cleanMarks);
+$('resetBtn').addEventListener('click', resetSite);
+$('saveBtn').addEventListener('click', saveAll);
+$('logoutBtn').addEventListener('click', logout);
+$('prepareBtn').addEventListener('click', prepareSite);
+$('applyBtn').addEventListener('click', applyEdit);
+$('cancelBtn').addEventListener('click', closePanel);
+$('closePanelBtn').addEventListener('click', closePanel);
+$('homeBtn').addEventListener('click', goHome);
+$('openSiteBtn').addEventListener('click', openLiveSite);
+$('deployBadge').addEventListener('click', () => verifyDeploy(repoDeployId, true));
+
+window.addEventListener('beforeunload', e => { if (Object.keys(pending).length) { e.preventDefault(); e.returnValue = ''; } });
+</script>
+</body>
+</html>
