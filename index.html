@@ -568,7 +568,6 @@
     gap: 28px;
     align-items: center;
   }
-  /* ===== КРАСИВАЯ РАМКА С ТЕНЬЮ ДЛЯ about.jpg ===== */
   .about-photo {
     position: relative;
     aspect-ratio: 4/5;
@@ -600,7 +599,6 @@
     z-index: 2;
     border-radius: 10px;
   }
-  /* ===== КОНЕЦ РАМКИ ===== */
   .about-text h2 {
     font-size: clamp(1.5rem, 3.3vw, 2.2rem);
     color: #2a1810;
@@ -876,12 +874,104 @@
     background-color: #faf6f0;
     padding-right: 36px;
   }
+
+  /* ═══════════════════════════════════════════════════════ */
+  /* НОВОЕ: ЧЕКБОКС СОГЛАСИЯ                                  */
+  /* ═══════════════════════════════════════════════════════ */
   .form-agree {
-    font-size: 11px;
-    color: #8b5a34;
-    margin-top: 8px;
-    text-align: center;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 14px;
+    margin-bottom: 4px;
+    padding: 10px 12px;
+    background: #faf6f0;
+    border: 1px solid rgba(107, 68, 35, 0.12);
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+  .form-agree:has(#agreeCheckbox:checked) {
+    background: rgba(212, 165, 116, 0.08);
+    border-color: rgba(107, 68, 35, 0.3);
+  }
+  .form-agree label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    flex: 1;
+    user-select: none;
+  }
+  .form-agree input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .form-agree .checkbox-box {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(107, 68, 35, 0.35);
+    border-radius: 5px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    margin-top: 1px;
+    position: relative;
+  }
+  .form-agree .checkbox-box::after {
+    content: '';
+    width: 10px;
+    height: 5px;
+    border-left: 2.5px solid white;
+    border-bottom: 2.5px solid white;
+    transform: rotate(-45deg) scale(0);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-top: -2px;
+  }
+  .form-agree input[type="checkbox"]:checked + .checkbox-box {
+    background: linear-gradient(135deg, #6b4423, #c87856);
+    border-color: #6b4423;
+    box-shadow: 0 2px 8px rgba(107, 68, 35, 0.3);
+  }
+  .form-agree input[type="checkbox"]:checked + .checkbox-box::after {
+    transform: rotate(-45deg) scale(1);
+  }
+  .form-agree input[type="checkbox"]:focus-visible + .checkbox-box {
+    outline: 2px solid #c87856;
+    outline-offset: 2px;
+  }
+  .form-agree .agree-text {
+    font-size: 12px;
+    color: #5a4535;
     line-height: 1.5;
+  }
+  .form-agree .agree-text a {
+    color: rgb(139, 69, 19);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .form-agree .agree-text a:hover {
+    color: #6b4423;
+  }
+
+  /* Кнопка отправки — неактивна без галочки */
+  .contact-form button[type="submit"] {
+    transition: all 0.3s;
+  }
+  .contact-form button[type="submit"]:disabled {
+    background: #c7b59a;
+    cursor: not-allowed;
+    opacity: 0.6;
+    box-shadow: none;
+    transform: none !important;
+  }
+  .contact-form button[type="submit"]:disabled:hover {
+    background: #c7b59a;
+    transform: none !important;
+    box-shadow: none !important;
   }
 
   footer {
@@ -1080,6 +1170,10 @@
       padding: 11px;
       font-size: 16px;
     }
+    .form-agree { padding: 10px; gap: 8px; }
+    .form-agree .checkbox-box { width: 18px; height: 18px; }
+    .form-agree .checkbox-box::after { width: 9px; height: 4.5px; border-width: 2px; }
+    .form-agree .agree-text { font-size: 11px; }
     .placeholder-label { padding: 12px; max-width: 92%; }
     .placeholder-label strong[data-copy] {
       font-size: 11px;
@@ -2253,7 +2347,7 @@
     </iframe>
 </div>
 </div>
-<form class="contact-form" onsubmit="event.preventDefault(); alert('Спасибо! Мы перезвоним в течение 10 минут.'); this.reset();">
+<form class="contact-form" id="contactForm" onsubmit="handleFormSubmit(event)">
     <h3>
         <span data-edit="auto_168">Запись на приём
     </span>
@@ -2308,15 +2402,19 @@
 <textarea placeholder="Опишите, что вас беспокоит (необязательно)"></textarea>
 
 </div>
-<button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+<button type="submit" class="btn btn-primary" id="submitBtn" style="width: 100%; justify-content: center;" disabled>
 <i class="fas fa-paper-plane">
 </i>Записаться на приём
 </button>
 <div class="form-agree">
-    <a data-cms-link="1" href="https://piarbookru-hub.github.io/test/privacy-policy.html" target="_self" data-link-color="brown" style="color: rgb(139, 69, 19); text-decoration: underline;">
-    <span data-edit="auto_174">Нажимая кнопку, вы соглашаетесь с политикой обработки персональных данных
-</span>
-</a>
+    <label for="agreeCheckbox">
+        <input type="checkbox" id="agreeCheckbox" required>
+        <span class="checkbox-box"></span>
+        <span class="agree-text">
+            <span data-edit="auto_174">Нажимая кнопку, вы соглашаетесь с</span>
+            <a data-cms-link="1" href="https://piarbookru-hub.github.io/test/privacy-policy.html" target="_self" data-link-color="brown" style="color: rgb(139, 69, 19); text-decoration: underline;" onclick="event.stopPropagation()">политикой обработки персональных данных</a>
+        </span>
+    </label>
 </div>
 </form>
 </div>
@@ -2487,6 +2585,34 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeLightbox();
   });
+
+  /* ═══════════════════════════════════════════════════════ */
+  /* НОВОЕ: ЧЕКБОКС СОГЛАСИЯ И ВАЛИДАЦИЯ ФОРМЫ               */
+  /* ═══════════════════════════════════════════════════════ */
+  const agreeCheckbox = document.getElementById('agreeCheckbox');
+  const submitBtn = document.getElementById('submitBtn');
+
+  // Активация кнопки при установке галочки
+  agreeCheckbox.addEventListener('change', function() {
+    submitBtn.disabled = !this.checked;
+  });
+
+  // Обработчик формы с двойной проверкой
+  function handleFormSubmit(event) {
+    event.preventDefault();
+
+    // Двойная защита — проверка галочки
+    if (!agreeCheckbox.checked) {
+      alert('Пожалуйста, подтвердите согласие с политикой обработки персональных данных');
+      agreeCheckbox.focus();
+      return false;
+    }
+
+    // Здесь можно добавить отправку в Telegram/на почту
+    alert('Спасибо! Мы перезвоним в течение 10 минут.');
+    event.target.reset();
+    submitBtn.disabled = true; // снова блокируем после сброса формы
+  }
 </script>
 
 </body>
