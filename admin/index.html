@@ -245,12 +245,10 @@ if (typeof CMS_CONFIG === 'undefined') {
 const LINK_COLORS = { inherit: null, brown: '#8B4513', lightbrown: '#CD853F' };
 const XHTML_NS = 'http://www.w3.org/1999/xhtml';
 
-// По умолчанию превью работает БЕЗ скриптов сайта: так они не смогут прочитать токен.
-// CMS_CONFIG.previewScripts = true включает скрипты (небезопасно: они получат доступ к токену).
 const PREVIEW_SANDBOX = CMS_CONFIG.previewScripts
     ? 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox'
     : 'allow-same-origin allow-popups allow-popups-to-escape-sandbox';
-const VIEW_SANDBOX = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox'; // без same-origin
+const VIEW_SANDBOX = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox';
 
 const $ = id => document.getElementById(id);
 
@@ -263,7 +261,7 @@ let ls, ss;
 try { ls = mkStore(localStorage); } catch { ls = { get: () => null, set() {}, del() {} }; }
 try { ss = mkStore(sessionStorage); } catch { ss = { get: () => null, set() {}, del() {} }; }
 
-ls.del('gh_token'); // токен больше не хранится в localStorage
+ls.del('gh_token');
 let token = ss.get('gh_token');
 let pending = {};
 let editKind = null, editKey = null, editImagePath = null, pendingImg = null, statusTimer = null, lastFocus = null;
@@ -299,6 +297,11 @@ try {
     siteBasePath = '/';
 }
 
+// Базовый путь без trailing slash — для сравнения "это главная?"
+function siteBasePathNoSlash() {
+    return siteBasePath.replace(/\/+$/, '');
+}
+
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const encPath = p => p.split('/').map(encodeURIComponent).join('/');
 
@@ -317,7 +320,6 @@ function validLinkUrl(u) {
     return !!safeAbs(u);
 }
 
-// Путь картинки относительно корня репозитория с учётом папки текущей страницы
 function resolveRepoPath(src) {
     try {
         const dirUrl = new URL(encPath(currentFile), 'https://repo.local/');
@@ -587,7 +589,6 @@ function showEditor() {
     loadSite();
 }
 
-// HTML для превью: без скриптов сайта, с <base> на папку текущей страницы
 function buildPreviewHtml(text) {
     const d = new DOMParser().parseFromString(text, 'text/html');
     if (!CMS_CONFIG.previewScripts) {
@@ -645,42 +646,100 @@ function reloadPreview() {
     showStatus('Обновляем превью...', 'info');
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: теперь распознаёт /, ./, пустую строку и базовый путь
+// как «главную страницу» (внутреннюю), а не как внешнюю ссылку
+// ═══════════════════════════════════════════════════════
 function isInternalPage(href) {
-    if (!href) return false;
+    if (href === undefined || href === null) return false;
+
+    // Пустая строка, '/', './' — это главная (index.html в корне сайта)
+    if (href === '' || href === '/' || href === './') return true;
+
     const clean = href.split(/[?#]/)[0];
-    if (/^(tel:|mailto:|javascript:|data:)/i.test(clean)) return false;
+
+    // Якорь — не страница
     if (clean.startsWith('#')) return false;
-    if (!/^(https?:|\/\/)/i.test(clean)) return /\.html?$/i.test(clean);
+
+    // Специальные протоколы — не страницы
+    if (/^(tel:|mailto:|javascript:|data:)/i.test(clean)) return false;
+
+    if (!/^(https?:|\/\/)/i.test(clean)) {
+        // Относительный путь:
+        // - пустой после очистки (например '/') — главная
+        // - заканчивается на '/' — папка = index.html в ней (считаем внутренней)
+        // - .html/.htm — страница
+        if (clean === '' || clean === '.') return true;
+        if (clean.endsWith('/')) return true;
+        return /\.html?$/i.test(clean);
+    }
+
+    // Абсолютный URL
     try {
         const url = new URL(clean.startsWith('//') ? 'https:' + clean : clean);
         const base = new URL(siteBaseUrl);
         if (url.hostname !== base.hostname) return false;
-        const normalizedUrlPath = url.pathname.replace(/^\/+/, '');
-        const normalizedBasePath = base.pathname.replace(/^\/+/, '');
-        if (normalizedBasePath && !normalizedUrlPath.startsWith(normalizedBasePath)) return false;
+
+        const normalizedUrlPath = url.pathname.replace(/\/+$/, '');
+        const normalizedBasePath = base.pathname.replace(/\/+$/, '');
+
+        // pathname совпадает с базовым путём — это главная
+        if (normalizedUrlPath === normalizedBasePath) return true;
+
+        // вне базового пути — не наша страница
+        if (normalizedBasePath && !url.pathname.startsWith(normalizedBasePath + '/')) {
+            return false;
+        }
+
         return /\.html?$/i.test(url.pathname);
     } catch { return false; }
 }
 
-// Путь страницы относительно корня репозитория; относительные ссылки считаются от текущей страницы
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: для /, ./, пустой строки, базового пути возвращает 'index.html'
+// ═══════════════════════════════════════════════════════
 function normalizePagePath(href) {
+    // «Главная» в любых формах
+    if (href === '' || href === '/' || href === './') return 'index.html';
+
     let p = href.split(/[?#]/)[0];
+
     if (/^(https?:|\/\/)/i.test(p)) {
-        try { p = new URL(p.startsWith('//') ? 'https:' + p : p).pathname; } catch {}
+        try {
+            const u = new URL(p.startsWith('//') ? 'https:' + p : p);
+            const basePathNoSlash = siteBasePathNoSlash();
+            // Если pathname == базовому — это главная
+            const up = u.pathname.replace(/\/+$/, '');
+            if (up === basePathNoSlash) return 'index.html';
+            p = u.pathname;
+        } catch {}
         try { p = decodeURIComponent(p); } catch {}
         if (siteBasePath !== '/' && p.startsWith(siteBasePath)) p = p.slice(siteBasePath.length);
         p = p.replace(/^\/+/, '');
     } else {
         try { p = decodeURIComponent(p); } catch {}
         if (p.startsWith('/')) {
+            const basePathNoSlash = siteBasePathNoSlash();
+            const pp = p.replace(/\/+$/, '');
+            if (pp === basePathNoSlash) return 'index.html';
             if (siteBasePath !== '/' && p.startsWith(siteBasePath)) p = p.slice(siteBasePath.length);
             p = p.replace(/^\/+/, '');
         } else {
+            if (p === '' || p === '.') return 'index.html';
+            if (p.endsWith('/')) {
+                const resolved = resolveRepoPath(p + 'index.html');
+                return resolved || 'index.html';
+            }
             const r = resolveRepoPath(p);
             p = r || '';
         }
     }
+
     p = p.replace(/^(\.\/)+/, '');
+
+    // Пустой путь — считаем главной
+    if (!p || p === '.') return 'index.html';
+
     if (p.split('/').some(s => s === '..')) return '';
     return p;
 }
@@ -740,15 +799,23 @@ async function prepareSite() {
 
 async function navigateTo(href) {
     const cleanPath = normalizePagePath(href);
-    if (!cleanPath) { showStatus('Не удалось определить страницу', 'error'); return; }
+    if (!cleanPath) { showStatus('Не удалось определить страницу по ссылке: ' + href, 'error'); return; }
+
+    // Если уже на этой странице и не в режиме просмотра — просто перезагружаем превью
+    if (cleanPath === currentFile && !viewModeUrl) {
+        reloadPreview();
+        return;
+    }
+
     if (Object.keys(pending).length) {
         if (!confirm('Есть несохранённые правки. При переходе они будут потеряны. Продолжить?')) return;
         pending = {}; markUnsaved();
     }
+
     const prevFile = currentFile;
     currentFile = cleanPath;
     saveCurrentFile();
-    viewModeUrl = null;
+    viewModeUrl = null;  // сбрасываем режим просмотра
     updatePageIndicator();
     showStatus('Открываю ' + cleanPath + '...', 'info');
     try {
@@ -768,6 +835,11 @@ async function navigateTo(href) {
             if (ok) {
                 showEditor();
                 showStatus('✓ Страница ' + cleanPath + ' готова к редактированию!', 'success');
+            } else {
+                // Не удалось — откатываемся
+                currentFile = prevFile;
+                saveCurrentFile();
+                updatePageIndicator();
             }
         }
     } catch (e) {
@@ -785,16 +857,22 @@ function openExternalInIframe(url) {
     const ifr = $('siteIframe');
     $('iframeLoader').classList.remove('hidden');
     $('loaderStatus').textContent = 'Открываю ссылку в режиме просмотра...';
-    ifr.setAttribute('sandbox', VIEW_SANDBOX); // чужой сайт без доступа к админке
+    ifr.setAttribute('sandbox', VIEW_SANDBOX);
     ifr.removeAttribute('srcdoc');
     ifr.onload = () => { $('iframeLoader').classList.add('hidden'); };
     ifr.src = url;
-    showStatus('Режим просмотра: редактирование недоступно.', 'info');
+    showStatus('Режим просмотра: редактирование недоступно. Нажмите «Домой» для возврата.', 'info');
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: goHome всегда переходит на index.html
+// (раньше при viewModeUrl просто загружал currentFile)
+// ═══════════════════════════════════════════════════════
 function goHome() {
-    if (viewModeUrl) { loadSite(); return; }
-    if (currentFile === 'index.html') { reloadPreview(); return; }
+    if (currentFile === 'index.html' && !viewModeUrl) {
+        reloadPreview();
+        return;
+    }
     navigateTo('index.html');
 }
 
@@ -825,7 +903,8 @@ function hookIframe() {
                 ev.preventDefault();
                 ev.stopPropagation();
                 const href = (linkEl.getAttribute('href') || '').trim();
-                if (!href) return;
+                // Пустой href — ничего не делаем
+                if (href === '') return;
                 if (/^(tel:|mailto:)/i.test(href)) { openSafe(href); return; }
                 if (href.startsWith('#')) {
                     const id = href.slice(1);
@@ -1007,7 +1086,7 @@ function applyLinkToImage(doc, target, url, linkTarget = '_blank') {
     let link = isA ? target : ((target.closest && target.closest('a')) || findInner());
     if (!link) {
         const hasInnerA = target.querySelector && target.querySelector('a');
-        const wrapNode = hasInnerA ? (target.querySelector('img') || target) : target; // не создаём <a> внутри <a>
+        const wrapNode = hasInnerA ? (target.querySelector('img') || target) : target;
         link = doc.createElement('a');
         wrapNode.parentNode.insertBefore(link, wrapNode);
         link.appendChild(wrapNode);
@@ -1019,7 +1098,6 @@ function applyLinkToImage(doc, target, url, linkTarget = '_blank') {
     else link.removeAttribute('rel');
 }
 
-// Удаляет только «чистые» обёртки <span data-edit>; на остальных элементах убирает лишь атрибут
 function cleanHtmlMarks(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const beforeEdit = doc.querySelectorAll('[data-edit]').length;
@@ -1053,7 +1131,7 @@ function processHtml(html) {
         acceptNode(node) {
             const parent = node.parentElement;
             if (!parent) return NodeFilter.FILTER_REJECT;
-            if (parent.namespaceURI !== XHTML_NS) return NodeFilter.FILTER_REJECT; // SVG/MathML
+            if (parent.namespaceURI !== XHTML_NS) return NodeFilter.FILTER_REJECT;
             if (parent.closest('svg, math, script, style, textarea, select, noscript, template')) return NodeFilter.FILTER_REJECT;
             if (!forced.has(parent) && SKIP_TAGS.has(parent.tagName.toLowerCase())) return NodeFilter.FILTER_REJECT;
             if (parent.hasAttribute('data-edit')) return NodeFilter.FILTER_REJECT;
