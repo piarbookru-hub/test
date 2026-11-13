@@ -704,6 +704,11 @@ async function prepareSite() {
     }
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: проверка готовности файла ПЕРЕД подготовкой
+// Если метки уже есть — просто открываем редактор (без коммита)
+// Если меток нет — подготавливаем файл
+// ═══════════════════════════════════════════════════════
 async function navigateTo(href) {
     const cleanPath = normalizePagePath(href);
     if (!cleanPath) return;
@@ -715,16 +720,37 @@ async function navigateTo(href) {
     saveCurrentFile();
     viewModeUrl = null;
     updatePageIndicator();
-    showSetup();
-    $('setupTitle').textContent = 'Подготовка ' + cleanPath;
-    $('errorDetails').innerHTML = '';
-    const log = $('progressLog');
-    log.style.display = 'block'; log.innerHTML = '';
-    showStatus('Подготавливаю страницу ' + cleanPath + '...', 'info');
-    const ok = await prepareCurrentFile(log);
-    if (ok) {
-        showEditor();
-        showStatus('✓ Страница ' + cleanPath + ' готова к редактированию!', 'success');
+
+    showStatus('Открываю ' + cleanPath + '...', 'info');
+
+    try {
+        const f = await getFile(currentFile);
+
+        if (f.text.includes('data-edit="')) {
+            // ✅ Файл УЖЕ подготовлен — открываем редактор мгновенно, БЕЗ коммита
+            repoDeployId = readDeployId(f.text);
+            showEditor();
+            showStatus('✓ ' + cleanPath + ' открыта для редактирования', 'success');
+        } else {
+            // Файл не подготовлен — запускаем подготовку (разовый коммит)
+            showSetup();
+            $('setupTitle').textContent = 'Подготовка ' + cleanPath;
+            $('errorDetails').innerHTML = '';
+            const log = $('progressLog');
+            log.style.display = 'block'; log.innerHTML = '';
+            showStatus('Страница не подготовлена — подготавливаю ' + cleanPath + '...', 'info');
+            const ok = await prepareCurrentFile(log);
+            if (ok) {
+                showEditor();
+                showStatus('✓ Страница ' + cleanPath + ' готова к редактированию!', 'success');
+            }
+        }
+    } catch (e) {
+        const i = interpretError(e.status, e.body);
+        showStatus('✗ Не удалось открыть ' + cleanPath + ': ' + i.title, 'error');
+        currentFile = 'index.html';
+        saveCurrentFile();
+        updatePageIndicator();
     }
 }
 
@@ -869,9 +895,6 @@ function readTextLink(key) {
     };
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: теперь возвращает и url, и linkTarget для фото
-// ═══════════════════════════════════════════════════════
 function readImageLink(key, path) {
     let d = null;
     try { d = $('siteIframe').contentDocument; } catch {}
@@ -940,12 +963,8 @@ function applyLinkToText(doc, el, url, keepColor, linkColor, linkTarget) {
     }
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: теперь принимает параметр linkTarget
-// ═══════════════════════════════════════════════════════
 function applyLinkToImage(doc, target, url, linkTarget = '_blank') {
     if (!target) return;
-    // Если URL пустой — снимаем ссылку (только если это CMS-ссылка)
     if (!url || !url.trim()) {
         let existingLink = null;
         if (target.tagName === 'A' && target.hasAttribute('data-cms-link')) existingLink = target;
@@ -954,7 +973,6 @@ function applyLinkToImage(doc, target, url, linkTarget = '_blank') {
             if (parentA && parentA.hasAttribute('data-cms-link')) existingLink = parentA;
         }
         if (existingLink) {
-            // Распаковываем содержимое ссылки обратно в родителя
             while (existingLink.firstChild) {
                 existingLink.parentNode.insertBefore(existingLink.firstChild, existingLink);
             }
@@ -1267,9 +1285,6 @@ function openText(key, value) {
     setTimeout(() => ta.focus(), 100);
 }
 
-// ═══════════════════════════════════════════════════════
-// ПАНЕЛЬ ФОТО: добавлен блок "Открывать ссылку"
-// ═══════════════════════════════════════════════════════
 function openImage(path, src, imgId) {
     editKind = 'image';
     editKey = imgId || path;
@@ -1372,7 +1387,6 @@ function applyEdit() {
                     const img = target.tagName === 'IMG' ? target : target.querySelector('img');
                     if (img) { img.removeAttribute('srcset'); img.src = pendingImg; }
                 }
-                // Ссылка применяется всегда (даже если URL пустой — для снятия)
                 applyLinkToImage(d, target, imgLinkUrl, imgLinkTarget);
             });
         }
