@@ -112,29 +112,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
 .link-option { margin-top: 12px; }
 .link-option > .field-label { margin-bottom: 8px; }
 .option-group { display: flex; flex-wrap: wrap; gap: 8px; }
-.radio-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: #0f0f0f;
-    border: 1px solid #333;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    color: #ccc;
-    transition: all .2s;
-    user-select: none;
-}
+.radio-label { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; background: #0f0f0f; border: 1px solid #333; border-radius: 6px; cursor: pointer; font-size: 13px; color: #ccc; transition: all .2s; user-select: none; }
 .radio-label:hover { border-color: #666; }
 .radio-label input[type="radio"] { accent-color: #F40009; cursor: pointer; margin: 0; }
 .radio-label:has(input:checked) { border-color: #F40009; background: rgba(244, 0, 9, .08); }
-
 .color-preview { display: inline-block; padding: 2px 6px; border-radius: 3px; font-weight: 500; }
 .color-preview.inherit { color: #fff; background: #2a2a2a; }
 .color-preview.brown { color: #fff; background: #8B4513; }
 .color-preview.lightbrown { color: #fff; background: #CD853F; }
-
 .target-label { color: #ccc; }
 
 .file-upload { display: flex; align-items: center; gap: 12px; padding: 16px; background: #0f0f0f; border: 2px dashed #333; border-radius: 8px; cursor: pointer; transition: border-color .2s; }
@@ -206,7 +191,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
     </div>
 
     <div class="hint-banner" id="hintBanner">
-        <i class="fas fa-lightbulb"></i> Клик по <strong>тексту/фото</strong> — редактирование. <strong>Alt+клик</strong> по ссылке — открыть страницу в админке. <strong>Ctrl+клик</strong> — новая вкладка. Зелёный значок <strong>«Сайт обновлён»</strong> — правки уже на живом сайте. <strong>Esc</strong> — закрыть панель.
+        <i class="fas fa-lightbulb"></i> Клик по <strong>тексту/фото</strong> — редактирование. <strong>Alt+клик</strong> по ссылке — открыть страницу в админке. <strong>Ctrl+клик</strong> — новая вкладка. <strong>Esc</strong> — закрыть панель. <strong>F5</strong> — перезагрузит ту же страницу.
     </div>
 
     <div class="setup-screen" id="setupScreen">
@@ -257,11 +242,7 @@ if (typeof CMS_CONFIG === 'undefined') {
     throw new Error('CMS_CONFIG is not defined');
 }
 
-const LINK_COLORS = {
-    inherit: null,
-    brown: '#8B4513',
-    lightbrown: '#CD853F'
-};
+const LINK_COLORS = { inherit: null, brown: '#8B4513', lightbrown: '#CD853F' };
 
 const $ = id => document.getElementById(id);
 let token = localStorage.getItem('gh_token');
@@ -270,7 +251,7 @@ let editKind = null, editKey = null, editImagePath = null, pendingImg = null, st
 let currentFile = localStorage.getItem('cms_currentFile') || 'index.html';
 let viewModeUrl = null;
 let siteBaseUrl = '';
-let siteBasePath = '/'; // pathname репозитория на GitHub Pages
+let siteBasePath = '/';
 let repoDeployId = null;
 let deployPollGen = 0;
 const API = `https://api.github.com/repos/${CMS_CONFIG.owner}/${CMS_CONFIG.repo}`;
@@ -282,18 +263,10 @@ function saveCurrentFile() {
     try { localStorage.setItem('cms_currentFile', currentFile); } catch {}
 }
 
-// ═══════════════════════════════════════════════════════
-// ВЫЧИСЛЕНИЕ БАЗОВОГО ПУТИ РЕПОЗИТОРИЯ
-// Для piapbookru-hub.github.io/test/ → siteBasePath = '/test/'
-// Для username.github.io → siteBasePath = '/'
-// ═══════════════════════════════════════════════════════
 try {
     const loc = window.location;
     const pathParts = loc.pathname.split('/').filter(Boolean);
-    // admin/index.html → pathParts = ['admin', 'index.html']
-    // или 'admin' → pathParts = ['admin']
     if (pathParts.length > 0) {
-        // убираем 'admin' и 'index.html' (или 'index.html' если admin не в папке)
         const lastPart = pathParts[pathParts.length - 1];
         if (lastPart.endsWith('.html')) pathParts.pop();
         const secondLast = pathParts[pathParts.length - 1];
@@ -546,8 +519,12 @@ async function enterApp() {
     updatePageIndicator();
     try {
         const f = await getFile(currentFile);
-        if (f.text.includes('data-edit="')) showEditor();
-        else { showSetup(); await checkToken(); }
+        if (f.text.includes('data-edit="')) {
+            repoDeployId = readDeployId(f.text);
+            showEditor();
+        } else {
+            showSetup(); await checkToken();
+        }
     } catch (e) {
         showSetup();
         if (e.status === 404) showErrorDetails('Файл не найден', 404, `В репозитории ${CMS_CONFIG.owner}/${CMS_CONFIG.repo} ветка ${CMS_CONFIG.branch}`, 'Проверьте имя файла.');
@@ -617,64 +594,33 @@ function reloadPreview() {
     showStatus('Обновляем превью...', 'info');
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: isInternalPage теперь проверяет что URL находится
-// именно в ЭТОМ репозитории (а не в другом на том же github.io)
-// ═══════════════════════════════════════════════════════
 function isInternalPage(href) {
     if (!href) return false;
     const clean = href.split(/[?#]/)[0];
     if (/^(tel:|mailto:|javascript:|data:)/i.test(clean)) return false;
     if (clean.startsWith('#')) return false;
-
-    // Относительный путь — всегда внутренний для этого репозитория
-    if (!/^(https?:|\/\/)/i.test(clean)) {
-        return /\.html?$/i.test(clean);
-    }
-
-    // Абсолютный URL — проверяем hostname И pathname
+    if (!/^(https?:|\/\/)/i.test(clean)) return /\.html?$/i.test(clean);
     try {
         const url = new URL(clean.startsWith('//') ? 'https:' + clean : clean);
         const base = new URL(siteBaseUrl);
-
-        // Должен быть тот же hostname
         if (url.hostname !== base.hostname) return false;
-
-        // Путь должен начинаться с базового пути репозитория
-        // (чтобы ссылки на другие репозитории того же пользователя не считались внутренними)
         const normalizedUrlPath = url.pathname.replace(/^\/+/, '');
         const normalizedBasePath = base.pathname.replace(/^\/+/, '');
-
         if (normalizedBasePath && !normalizedUrlPath.startsWith(normalizedBasePath)) {
             return false;
         }
-
         return /\.html?$/i.test(url.pathname);
     } catch {
         return false;
     }
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: normalizePagePath теперь ОТРЕЗАЕТ базовый путь репозитория
-// Было: https://piarbookru-hub.github.io/test/privacy-policy.html → 'test/privacy-policy.html'
-// Стало: https://piarbookru-hub.github.io/test/privacy-policy.html → 'privacy-policy.html'
-// ═══════════════════════════════════════════════════════
 function normalizePagePath(href) {
     let p = href.split(/[?#]/)[0];
-
-    // Если абсолютный URL — извлекаем pathname
     if (/^(https?:|\/\/)/i.test(p)) {
-        try {
-            const url = new URL(p.startsWith('//') ? 'https:' + p : p);
-            p = url.pathname;
-        } catch {}
+        try { p = new URL(p.startsWith('//') ? 'https:' + p : p).pathname; } catch {}
     }
-
     try { p = decodeURIComponent(p); } catch {}
-
-    // Отрезаем базовый путь репозитория (для GitHub Pages)
-    // Например: '/test/privacy-policy.html' → 'privacy-policy.html'
     if (siteBasePath && siteBasePath !== '/') {
         if (p.startsWith(siteBasePath)) {
             p = p.slice(siteBasePath.length);
@@ -682,7 +628,6 @@ function normalizePagePath(href) {
             p = p.slice(('/' + siteBasePath.replace(/^\/+/, '')).length);
         }
     }
-
     p = p.replace(/^(\.\/)+/, '').replace(/^\/+/, '');
     return p;
 }
@@ -742,6 +687,11 @@ async function prepareSite() {
     }
 }
 
+// ═══════════════════════════════════════════════════════
+// ИСПРАВЛЕНО: navigateTo теперь проверяет готовность файла
+// Если файл уже подготовлен — просто открывает редактор (мгновенно)
+// Если не готов — подготавливает (3-5 сек)
+// ═══════════════════════════════════════════════════════
 async function navigateTo(href) {
     const cleanPath = normalizePagePath(href);
     if (!cleanPath) return;
@@ -753,16 +703,36 @@ async function navigateTo(href) {
     saveCurrentFile();
     viewModeUrl = null;
     updatePageIndicator();
-    showSetup();
-    $('setupTitle').textContent = 'Подготовка ' + cleanPath;
-    $('errorDetails').innerHTML = '';
-    const log = $('progressLog');
-    log.style.display = 'block'; log.innerHTML = '';
-    showStatus('Подготавливаю страницу ' + cleanPath + '...', 'info');
-    const ok = await prepareCurrentFile(log);
-    if (ok) {
-        showEditor();
-        showStatus('✓ Страница ' + cleanPath + ' готова к редактированию!', 'success');
+
+    showStatus('Открываю ' + cleanPath + '...', 'info');
+
+    try {
+        const f = await getFile(currentFile);
+
+        if (f.text.includes('data-edit="')) {
+            // ✅ Файл уже подготовлен — открываем мгновенно, БЕЗ переподготовки
+            repoDeployId = readDeployId(f.text);
+            showEditor();
+            showStatus('✓ ' + cleanPath + ' открыта для редактирования', 'success');
+        } else {
+            // Файл не подготовлен — готовим его
+            showSetup();
+            $('setupTitle').textContent = 'Подготовка ' + cleanPath;
+            $('errorDetails').innerHTML = '';
+            const log = $('progressLog');
+            log.style.display = 'block'; log.innerHTML = '';
+            showStatus('Страница не подготовлена — подготавливаю ' + cleanPath + '...', 'info');
+            const ok = await prepareCurrentFile(log);
+            if (ok) {
+                showEditor();
+                showStatus('✓ ' + cleanPath + ' готова к редактированию!', 'success');
+            }
+        }
+    } catch (e) {
+        const i = interpretError(e.status, e.body);
+        showStatus('✗ Не удалось открыть ' + cleanPath + ': ' + i.title, 'error');
+        currentFile = 'index.html';
+        updatePageIndicator();
     }
 }
 
@@ -1227,31 +1197,16 @@ function openText(key, value) {
         <div class="link-option">
             <label class="field-label"><i class="fas fa-palette" style="color:#CD853F;"></i> Цвет ссылки</label>
             <div class="option-group">
-                <label class="radio-label">
-                    <input type="radio" name="linkColor" value="inherit">
-                    <span class="color-preview inherit">Текущий</span>
-                </label>
-                <label class="radio-label">
-                    <input type="radio" name="linkColor" value="brown">
-                    <span class="color-preview brown">Коричневый</span>
-                </label>
-                <label class="radio-label">
-                    <input type="radio" name="linkColor" value="lightbrown">
-                    <span class="color-preview lightbrown">Светло-коричневый</span>
-                </label>
+                <label class="radio-label"><input type="radio" name="linkColor" value="inherit"><span class="color-preview inherit">Текущий</span></label>
+                <label class="radio-label"><input type="radio" name="linkColor" value="brown"><span class="color-preview brown">Коричневый</span></label>
+                <label class="radio-label"><input type="radio" name="linkColor" value="lightbrown"><span class="color-preview lightbrown">Светло-коричневый</span></label>
             </div>
         </div>
         <div class="link-option">
             <label class="field-label"><i class="fas fa-external-link-alt" style="color:#c9a961;"></i> Открывать ссылку</label>
             <div class="option-group">
-                <label class="radio-label">
-                    <input type="radio" name="linkTarget" value="_blank">
-                    <span class="target-label">В новой вкладке</span>
-                </label>
-                <label class="radio-label">
-                    <input type="radio" name="linkTarget" value="_self">
-                    <span class="target-label">В том же окне</span>
-                </label>
+                <label class="radio-label"><input type="radio" name="linkTarget" value="_blank"><span class="target-label">В новой вкладке</span></label>
+                <label class="radio-label"><input type="radio" name="linkTarget" value="_self"><span class="target-label">В том же окне</span></label>
             </div>
         </div>
     `;
