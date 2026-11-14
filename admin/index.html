@@ -216,7 +216,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
             <div class="loader-text">Загрузка страницы...</div>
             <div class="loader-status" id="loaderStatus">Инициализация</div>
         </div>
-        <iframe id="siteIframe" class="site-iframe" title="Превью сайта" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+        <iframe id="siteIframe" class="site-iframe" title="Превью сайта" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>
     </div>
 </div>
 
@@ -245,9 +245,13 @@ if (typeof CMS_CONFIG === 'undefined') {
 const LINK_COLORS = { inherit: null, brown: '#8B4513', lightbrown: '#CD853F' };
 const XHTML_NS = 'http://www.w3.org/1999/xhtml';
 
-const PREVIEW_SANDBOX = CMS_CONFIG.previewScripts
-    ? 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox'
-    : 'allow-same-origin allow-popups allow-popups-to-escape-sandbox';
+// ═══════════════════════════════════════════════════════
+// БЕЗОПАСНОСТЬ: sandbox с allow-scripts, но БЕЗ allow-same-origin
+// Скрипты сайта работают (метрика, виджеты, чаты, onload у img)
+// но НЕ имеют доступа к sessionStorage админки (разные origin)
+// Это решает спам "Blocked script execution" в консоли
+// ═══════════════════════════════════════════════════════
+const PREVIEW_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
 const VIEW_SANDBOX = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox';
 
 const $ = id => document.getElementById(id);
@@ -589,26 +593,14 @@ function showEditor() {
 }
 
 // ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: сохраняем onload/onerror у <img>
-// Они безопасны (не дают доступа к токену) и нужны
-// для скрытия заглушек placeholder-label
+// ИСПРАВЛЕНО: упрощён buildPreviewHtml
+// - НЕ удаляем <script> (sandbox без allow-same-origin защищает токен)
+// - НЕ удаляем on* атрибуты (onload у img нужен для заглушек)
+// - Удаляем javascript: в href (безопасность)
+// - Чистим <base> и ставим правильный
 // ═══════════════════════════════════════════════════════
 function buildPreviewHtml(text) {
     const d = new DOMParser().parseFromString(text, 'text/html');
-    if (!CMS_CONFIG.previewScripts) {
-        // Удаляем скрипты и noscript
-        d.querySelectorAll('script, noscript, meta[http-equiv="refresh" i]').forEach(n => n.remove());
-        // Удаляем on* атрибуты, НО сохраняем onload/onerror у <img>
-        d.querySelectorAll('*').forEach(el => {
-            Array.from(el.attributes).forEach(a => {
-                if (/^on/i.test(a.name)) {
-                    // onload и onerror у img — безопасны, нужны для заглушек
-                    if (el.tagName === 'IMG' && (a.name === 'onload' || a.name === 'onerror')) return;
-                    el.removeAttribute(a.name);
-                }
-            });
-        });
-    }
     d.querySelectorAll('a[href]').forEach(a => {
         if (/^\s*javascript:/i.test(a.getAttribute('href'))) a.removeAttribute('href');
     });
@@ -838,10 +830,6 @@ function goHome() {
 
 function openLiveSite() { window.open(viewModeUrl ? viewModeUrl : pageUrl().href, '_blank', 'noopener'); }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: hookIframe теперь скрывает заглушки
-// для уже загруженных изображений (решает проблему кэша)
-// ═══════════════════════════════════════════════════════
 function hookIframe() {
     let d;
     try { d = $('siteIframe').contentDocument; } catch { return; }
@@ -849,15 +837,6 @@ function hookIframe() {
     const st = d.createElement('style');
     st.textContent = `[data-edit]:hover, [data-img]:hover { outline: 2px dashed #F40009; outline-offset: 2px; cursor: pointer; }`;
     d.head.appendChild(st);
-
-    // Скрываем placeholder-label для уже загруженных img
-    // (решает проблему когда img загрузился из кэша до назначения onload)
-    d.querySelectorAll('img').forEach(img => {
-        if (img.complete && img.naturalWidth > 0) {
-            const label = img.parentElement?.querySelector('.placeholder-label');
-            if (label) label.style.display = 'none';
-        }
-    });
 
     const handleModifierOpen = ev => {
         const linkEl = ev.target.closest && ev.target.closest('a[href]');
