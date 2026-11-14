@@ -216,7 +216,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid #F40009; outline-offs
             <div class="loader-text">Загрузка страницы...</div>
             <div class="loader-status" id="loaderStatus">Инициализация</div>
         </div>
-        <iframe id="siteIframe" class="site-iframe" title="Превью сайта" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>
+        <iframe id="siteIframe" class="site-iframe" title="Превью сайта" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
     </div>
 </div>
 
@@ -245,13 +245,7 @@ if (typeof CMS_CONFIG === 'undefined') {
 const LINK_COLORS = { inherit: null, brown: '#8B4513', lightbrown: '#CD853F' };
 const XHTML_NS = 'http://www.w3.org/1999/xhtml';
 
-// ═══════════════════════════════════════════════════════
-// БЕЗОПАСНОСТЬ: sandbox с allow-scripts, но БЕЗ allow-same-origin
-// Скрипты сайта работают (метрика, виджеты, чаты, onload у img)
-// но НЕ имеют доступа к sessionStorage админки (разные origin)
-// Это решает спам "Blocked script execution" в консоли
-// ═══════════════════════════════════════════════════════
-const PREVIEW_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
+const PREVIEW_SANDBOX = 'allow-same-origin allow-popups allow-popups-to-escape-sandbox';
 const VIEW_SANDBOX = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox';
 
 const $ = id => document.getElementById(id);
@@ -592,15 +586,12 @@ function showEditor() {
     loadSite();
 }
 
-// ═══════════════════════════════════════════════════════
-// ИСПРАВЛЕНО: упрощён buildPreviewHtml
-// - НЕ удаляем <script> (sandbox без allow-same-origin защищает токен)
-// - НЕ удаляем on* атрибуты (onload у img нужен для заглушек)
-// - Удаляем javascript: в href (безопасность)
-// - Чистим <base> и ставим правильный
-// ═══════════════════════════════════════════════════════
 function buildPreviewHtml(text) {
     const d = new DOMParser().parseFromString(text, 'text/html');
+    d.querySelectorAll('script, noscript, meta[http-equiv="refresh" i]').forEach(n => n.remove());
+    d.querySelectorAll('*').forEach(el => {
+        Array.from(el.attributes).forEach(a => { if (/^on/i.test(a.name)) el.removeAttribute(a.name); });
+    });
     d.querySelectorAll('a[href]').forEach(a => {
         if (/^\s*javascript:/i.test(a.getAttribute('href'))) a.removeAttribute('href');
     });
@@ -833,10 +824,29 @@ function openLiveSite() { window.open(viewModeUrl ? viewModeUrl : pageUrl().href
 function hookIframe() {
     let d;
     try { d = $('siteIframe').contentDocument; } catch { return; }
-    if (!d || !d.head) return;
+    if (!d || !d.head) {
+        showStatus('Нет доступа к превью (sandbox)', 'error');
+        return;
+    }
     const st = d.createElement('style');
     st.textContent = `[data-edit]:hover, [data-img]:hover { outline: 2px dashed #F40009; outline-offset: 2px; cursor: pointer; }`;
     d.head.appendChild(st);
+
+    function hideLoadedPlaceholders() {
+        d.querySelectorAll('.placeholder-label').forEach(ph => {
+            const holder = ph.parentElement;
+            if (!holder) return;
+            const img = holder.querySelector('img');
+            if (!img) return;
+            const hide = () => {
+                if (img.complete && img.naturalWidth > 0) ph.style.display = 'none';
+            };
+            if (img.complete) hide();
+            img.addEventListener('load', hide);
+            img.addEventListener('error', () => { if (ph.style.display !== 'none') ph.style.display = ''; });
+        });
+    }
+    hideLoadedPlaceholders();
 
     const handleModifierOpen = ev => {
         const linkEl = ev.target.closest && ev.target.closest('a[href]');
